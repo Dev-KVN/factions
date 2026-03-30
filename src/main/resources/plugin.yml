@@ -1,0 +1,12 @@
+name: Factions
+version: 1.0.0
+main: com.factions.FactionsPlugin
+api-version: 1.16
+description: A full Minecraft Factions plugin
+author: FactionsTeam
+
+commands:
+  f:
+    description: Faction commands
+    usage: /<command> [subcommand] [args...]
+    aliases: [faction, fac]
