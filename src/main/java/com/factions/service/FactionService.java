@@ -196,22 +196,6 @@ public class FactionService {
     }
 
     /**
-     * Sets the role of a member.
-     */
-    public boolean setMemberRole(Faction faction, UUID playerId, FactionMember.Role newRole) {
-        if (!faction.hasMember(playerId)) {
-            return false;
-        }
-        try {
-            memberMapper.updateRole(faction.getId(), playerId, newRole.name());
-            return true;
-        } catch (SQLException e) {
-            LOGGER.log(Level.WARNING, "Failed to set member role", e);
-            return false;
-        }
-    }
-
-    /**
      * Adds a member to a faction.
      */
     public boolean addMember(Faction faction, UUID playerId) {

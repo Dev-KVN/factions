@@ -196,7 +196,7 @@ public class PowerService {
      * Sets a player's power directly (e.g., after death).
      */
     public void setPower(UUID playerId, double power) {
-        double max = maxPowerCache.getOrDefault(playerId, DEFAULT_MAX_POWER);
+        double max = maxPowerCache.getOrDefault(playerId, config.getMaxPower());
         playerPowerCache.put(playerId, Math.min(max, Math.max(0, power)));
         lastPowerUpdate.put(playerId, System.currentTimeMillis());
         try {
@@ -307,7 +307,14 @@ public class PowerService {
         Map<String, Object> stats = new HashMap<>();
         stats.put("cachedPlayers", playerPowerCache.size());
         stats.put("onlinePlayers", onlinePlayers.size());
-        stats.put("schedulerActive", !scheduler.isShutdown());
         return stats;
+    }
+
+    /**
+     * Shuts down the power service, releasing any resources.
+     * Currently a no-op but included for lifecycle compatibility.
+     */
+    public void shutdown() {
+        // Future: shutdown executors, close DB connections if owned, etc.
     }
 }

@@ -31,7 +31,7 @@ public class PowerLossListener implements Listener {
 
     @EventHandler(priority = EventPriority.HIGH)
     public void onPlayerDeath(PlayerDeathEvent event) {
-        Player player = event.getPlayer();
+        Player player = (Player) event.getEntity();
         UUID playerId = player.getUniqueId();
 
         try {

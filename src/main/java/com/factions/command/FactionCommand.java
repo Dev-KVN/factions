@@ -292,15 +292,11 @@ public class FactionCommand implements CommandExecutor, TabExecutor {
             return;
         }
 
-        try {
-            // Check tag availability
-            Faction existing = plugin.getFactionService().getFactionByTag(newTag);
-            if (existing != null && !existing.getId().equals(faction.getId())) {
-                sender.sendMessage(PREFIX + "§cThat tag is already taken.");
-                return;
-            }
-        } catch (SQLException e) {
-            throw e;
+        // Check tag availability
+        Faction existing = plugin.getFactionService().getFactionByTag(newTag);
+        if (existing != null && !existing.getId().equals(faction.getId())) {
+            sender.sendMessage(PREFIX + "§cThat tag is already taken.");
+            return;
         }
 
         faction.setTag(newTag);
@@ -548,13 +544,9 @@ public class FactionCommand implements CommandExecutor, TabExecutor {
         List<Faction> factions = plugin.getFactionService().getAllFactions()
                 .stream()
                 .sorted((a, b) -> {
-                    try {
-                        double powerA = plugin.getPowerService().recalculateFactionPower(a);
-                        double powerB = plugin.getPowerService().recalculateFactionPower(b);
-                        return Double.compare(powerB, powerA);
-                    } catch (SQLException e) {
-                        return 0;
-                    }
+                    double powerA = plugin.getPowerService().recalculateFactionPower(a);
+                    double powerB = plugin.getPowerService().recalculateFactionPower(b);
+                    return Double.compare(powerB, powerA);
                 })
                 .collect(Collectors.toList());
 

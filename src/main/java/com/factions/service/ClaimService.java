@@ -254,14 +254,7 @@ public class ClaimService {
      */
     public Optional<Faction> getOwningFaction(String world, int chunkX, int chunkZ) {
         return getClaimingFaction(world, chunkX, chunkZ)
-                .flatMap(factionId -> {
-                    try {
-                        return Optional.ofNullable(factionService.getFaction(factionId));
-                    } catch (SQLException e) {
-                        LOGGER.log(Level.WARNING, "Failed to get faction for claim", e);
-                        return Optional.empty();
-                    }
-                });
+                .flatMap(factionId -> Optional.ofNullable(factionService.getFaction(factionId)));
     }
 
     /**

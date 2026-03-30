@@ -53,7 +53,7 @@ public class PowerTask implements Runnable {
     @Override
     public void run() {
         try {
-            powerService.updateAllOnlinePower();
+            powerService.updateOnlinePower();
         } catch (Exception e) {
             LOGGER.log(Level.WARNING, "Error updating online power", e);
         }
