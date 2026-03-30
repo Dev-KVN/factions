@@ -119,7 +119,15 @@ public class DatabaseManager {
                 stmt.execute("PRAGMA foreign_keys = ON");
             }
 
-            stmt.execute(schema);
+            // Split schema into individual statements and execute each
+            // The schema contains multiple CREATE TABLE statements separated by semicolons
+            String[] statements = schema.split(";");
+            for (String sql : statements) {
+                sql = sql.trim();
+                if (!sql.isEmpty()) {
+                    stmt.execute(sql);
+                }
+            }
             LOGGER.info("Database schema initialized successfully");
         } catch (SQLException e) {
             LOGGER.log(Level.SEVERE, "Failed to initialize schema", e);

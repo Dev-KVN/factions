@@ -42,6 +42,13 @@ public class PowerService {
     }
 
     /**
+     * Gets the minimum claims per power ratio from configuration.
+     */
+    public double getMinClaimsPerPower() {
+        return config.getMinClaimsPerPower();
+    }
+
+    /**
      * Loads all player power data from database into cache.
      */
     private void loadAllPowerFromDb() {

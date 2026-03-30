@@ -77,6 +77,9 @@ public class FactionService {
         faction.setLastSeen(System.currentTimeMillis());
         faction.addMember(leaderId);
         faction.setPower(100.0); // Starting power for first member
+        // Set initial max claims based on power and configuration
+        int maxClaims = (int) Math.floor(faction.getPower() * powerService.getMinClaimsPerPower());
+        faction.setMaxClaims(maxClaims);
 
         try {
             factionMapper.insert(faction);

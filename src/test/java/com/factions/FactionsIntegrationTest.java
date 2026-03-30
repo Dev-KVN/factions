@@ -1,6 +1,7 @@
 package com.factions;
 
 import com.factions.api.*;
+import com.factions.config.PowerConfiguration;
 import com.factions.persistence.*;
 import com.factions.service.*;
 import org.junit.jupiter.api.*;
@@ -25,13 +26,27 @@ public class FactionsIntegrationTest {
 
     @BeforeAll
     public static void setUp() throws SQLException {
-        // Initialize in-memory SQLite database
+        // Use file-based SQLite database for test isolation
         File tempDb = new File("target/test-factions.db");
+        // Delete any existing test database to start fresh
+        if (tempDb.exists()) {
+            tempDb.delete();
+        }
         db = new DatabaseManager(tempDb.getAbsolutePath());
         db.initialize();
         db.initializeSchema();
 
-        powerService = new PowerService(db);
+        PowerConfiguration powerConfig = new PowerConfiguration(
+            1000.0,   // maxPower
+            1.0,      // gainRate
+            10.0,     // deathPenaltyPercent
+            PowerConfiguration.OfflineMode.DECAY,
+            0.5,      // offlineDecayRate
+            1.0,      // minutesPerPoint
+            0.0,      // incrementPerDay
+            0.01      // minClaimsPerPower
+        );
+        powerService = new PowerService(db, powerConfig);
         factionService = new FactionService(db, powerService);
         relationService = new RelationService(db);
         claimService = new ClaimService(db, powerService, factionService);
@@ -47,7 +62,7 @@ public class FactionsIntegrationTest {
     @Test
     public void testCreateFaction() throws SQLException {
         UUID leaderId = UUID.randomUUID();
-        Faction faction = factionService.createFaction("TestFaction", "TEST", leaderId);
+        Faction faction = factionService.createFaction("TestFaction", "TEST", leaderId);  // TEST is 4 chars, valid
 
         assertNotNull(faction);
         assertEquals("TestFaction", faction.getName());
@@ -60,7 +75,7 @@ public class FactionsIntegrationTest {
     @Test
     public void testPowerCalculation() throws SQLException {
         UUID leaderId = UUID.randomUUID();
-        Faction faction = factionService.createFaction("PowerFaction", "POWER", leaderId);
+        Faction faction = factionService.createFaction("PowerFaction", "PWR", leaderId);  // PWR is 3 chars
 
         UUID memberId = UUID.randomUUID();
         factionService.addMember(faction, memberId);
@@ -72,7 +87,7 @@ public class FactionsIntegrationTest {
     @Test
     public void testClaimChunk() throws SQLException {
         UUID leaderId = UUID.randomUUID();
-        Faction faction = factionService.createFaction("ClaimFaction", "CLAIM", leaderId);
+        Faction faction = factionService.createFaction("ClaimFaction", "CLM", leaderId);  // CLM is 3 chars
 
         boolean claimed = claimService.claimChunk(faction, "world", 0, 0, "TestPlayer");
         assertTrue(claimed);
@@ -91,7 +106,7 @@ public class FactionsIntegrationTest {
     @Test
     public void testClaimLimit() throws SQLException {
         UUID leaderId = UUID.randomUUID();
-        Faction faction = factionService.createFaction("LimitFaction", "LIMIT", leaderId);
+        Faction faction = factionService.createFaction("LimitFaction", "LMT", leaderId);  // LMT is 3 chars
 
         // Set a low max claims
         faction.setMaxClaims(2);
