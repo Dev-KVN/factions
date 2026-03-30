@@ -1,0 +1,66 @@
+# Factions Plugin Configuration
+
+# Database settings
+database:
+  type: "sqlite" # "mysql" or "sqlite"
+  host: "localhost"
+  port: 3306
+  name: "factions"
+  username: "factions"
+  password: ""
+
+# Power system configuration
+power:
+  max-power: 1000.0
+  regen-rate: 1.0 # per minute when online
+  offline-decay-rate: 0.5 # per hour when offline
+  death-penalty-percent: 10.0 # percentage of power lost on death
+  min-claims-per-power: 0.01 # 1 claim per 100 power (1/100 = 0.01)
+
+# Claim settings
+claims:
+  connected-claims-required: true # Claims must be adjacent to existing claims
+  overclaim-enabled: true # Raid mechanic
+  overclaim-power-diff: 1.2 # Attacker must have 20% more power (1.2x)
+
+# Economy integration (if Vault present)
+economy:
+  enabled: false
+  claim-cost: 100.0 # cost per claim
+  home-teleport-cost: 50.0
+
+# Home settings
+home:
+  cooldown-seconds: 60
+  teleport-delay-seconds: 5
+  warmup-cancel-on-move: true
+  cancel-on-damage: true
+
+# Chat settings
+chat:
+  format-relation-colors: true
+  ally-color: "&a"
+  enemy-color: "&c"
+  neutral-color: "&7"
+  member-color: "&e"
+
+# Messages
+messages:
+  prefix: "&7[&bFactions&7] &r"
+  no-permission: "&cYou don't have permission to do that."
+  not-in-faction: "&cYou are not in a faction."
+  already-in-faction: "&cYou are already in a faction."
+  faction-created: "&aFaction created! &7%tag%"
+  faction-disbanded: "&aFaction disbanded."
+  claim-success: "&aChunk claimed!"
+  claim-failed-limit: "&cYour faction has reached its claim limit."
+  claim-failed-adjacency: "&cNew claims must be adjacent to existing territory."
+  claim-failed-claimed: "&cThis chunk is already claimed."
+  unclaim-success: "&aChunk unclaimed."
+  home-set: "&aFaction home set!"
+  home-not-set: "&cNo home set. Use /f sethome"
+
+# Debug settings
+debug:
+  show-border-claims: false # shows claimed chunks on chunk borders
+  log-all-actions: false
