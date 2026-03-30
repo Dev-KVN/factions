@@ -1,6 +1,5 @@
 package com.factions;
 
-import com.factions.api.FactionService;
 import com.factions.api.FactionsAPI;
 import com.factions.config.PowerConfiguration;
 import com.factions.listeners.PowerLossListener;

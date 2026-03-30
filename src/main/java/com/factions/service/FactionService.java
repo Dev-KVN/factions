@@ -196,21 +196,6 @@ public class FactionService {
     }
 
     /**
-     * Gets the role of a member as an enum.
-     */
-    public FactionMember.Role getMemberRole(Faction faction, UUID playerId) {
-        try {
-            String roleStr = memberMapper.getRole(faction.getId(), playerId);
-            if (roleStr != null) {
-                return FactionMember.Role.valueOf(roleStr);
-            }
-        } catch (SQLException e) {
-            LOGGER.log(Level.WARNING, "Failed to get member role", e);
-        }
-        return null;
-    }
-
-    /**
      * Sets the role of a member.
      */
     public boolean setMemberRole(Faction faction, UUID playerId, FactionMember.Role newRole) {
