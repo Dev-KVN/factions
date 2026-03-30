@@ -4,6 +4,7 @@ import com.factions.api.FactionService;
 import com.factions.api.FactionsAPI;
 import com.factions.persistence.DatabaseManager;
 import com.factions.service.ClaimService;
+import com.factions.service.FactionService;
 import com.factions.service.PowerService;
 import com.factions.service.RelationService;
 import com.factions.command.FactionCommand;

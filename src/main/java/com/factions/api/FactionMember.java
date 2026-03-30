@@ -12,7 +12,23 @@ public class FactionMember {
         LEADER,
         OFFICER,
         MEMBER,
-        RECRUIT
+        RECRUIT;
+
+        public boolean canInvite() {
+            return this == LEADER || this == OFFICER;
+        }
+
+        public boolean canClaim() {
+            return this == LEADER || this == OFFICER || this == MEMBER;
+        }
+
+        public boolean canSetHome() {
+            return this == LEADER || this == OFFICER;
+        }
+
+        public boolean canSetRelation() {
+            return this == LEADER || this == OFFICER;
+        }
     }
 
     private final UUID playerId;

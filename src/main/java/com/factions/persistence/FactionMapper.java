@@ -3,6 +3,7 @@ package com.factions.persistence;
 import com.factions.api.Faction;
 import com.factions.api.FactionImpl;
 import com.factions.api.FactionMember;
+import com.factions.api.RelationState;
 
 import java.sql.*;
 import java.util.*;

@@ -1,6 +1,7 @@
 package com.factions.service;
 
 import com.factions.api.*;
+import com.factions.persistence.DatabaseManager;
 import com.factions.persistence.RelationMapper;
 
 import java.sql.SQLException;

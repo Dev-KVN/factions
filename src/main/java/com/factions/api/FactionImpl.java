@@ -361,7 +361,7 @@ public class FactionImpl implements Faction {
     /**
      * Gets the internal relations map (use with caution).
      */
-    ConcurrentHashMap<UUID, RelationState> getRelationsInternal() {
+    public ConcurrentHashMap<UUID, RelationState> getRelationsInternal() {
         return relations;
     }
 }

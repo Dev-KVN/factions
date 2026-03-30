@@ -178,7 +178,7 @@ public interface Faction {
     /**
      * Gets all claimed chunk coordinates.
      */
-    List<Claim> getClaims();
+    Set<Claim> getClaims();
 
     /**
      * Adds a claim to the faction.

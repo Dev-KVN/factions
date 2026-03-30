@@ -166,7 +166,7 @@ public class ClaimService {
     /**
      * Checks if a chunk is claimed.
      */
-    public Optional<UUID> get claimingFaction(String world, int chunkX, int chunkZ) {
+    public Optional<UUID> getClaimingFaction(String world, int chunkX, int chunkZ) {
         String claimId = world + ":" + chunkX + ":" + chunkZ;
         UUID factionId = chunkToFaction.get(claimId);
         return Optional.ofNullable(factionId);
