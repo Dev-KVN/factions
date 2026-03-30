@@ -1,0 +1,133 @@
+package com.factions;
+
+import com.factions.api.FactionService;
+import com.factions.api.FactionsAPI;
+import com.factions.persistence.DatabaseManager;
+import com.factions.service.ClaimService;
+import com.factions.service.PowerService;
+import com.factions.service.RelationService;
+import com.factions.command.FactionCommand;
+import org.bukkit.plugin.java.JavaPlugin;
+
+import java.io.File;
+import java.sql.SQLException;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+
+/**
+ * Main Factions Plugin class.
+ */
+public class FactionsPlugin extends JavaPlugin {
+
+    private static final Logger LOGGER = Logger.getLogger(FactionsPlugin.class.getName());
+
+    private DatabaseManager databaseManager;
+    private FactionService factionService;
+    private PowerService powerService;
+    private ClaimService claimService;
+    private RelationService relationService;
+
+    @Override
+    public void onEnable() {
+        getLogger().info("Enabling FactionsPlugin...");
+
+        // Create config file if it doesn't exist
+        saveDefaultConfig();
+
+        // Initialize database
+        try {
+            initializeDatabase();
+        } catch (SQLException e) {
+            getLogger().log(Level.SEVERE, "Failed to initialize database", e);
+            getServer().getPluginManager().disablePlugin(this);
+            return;
+        }
+
+        // Initialize services
+        initializeServices();
+
+        // Register commands
+        getCommand("f").setExecutor(new FactionCommand(this));
+
+        // Register events
+        getServer().getPluginManager().registerEvents(new com.factions.listeners.PlayerListener(this), this);
+        getServer().getPluginManager().registerEvents(new com.factions.listeners.ChunkListener(this), this);
+
+        // Initialize API
+        FactionsAPI.setPlugin(this);
+
+        getLogger().info("FactionsPlugin enabled successfully!");
+    }
+
+    @Override
+    public void onDisable() {
+        getLogger().info("Disabling FactionsPlugin...");
+
+        if (powerService != null) {
+            powerService.shutdown();
+        }
+
+        if (databaseManager != null) {
+            databaseManager.shutdown();
+        }
+
+        getLogger().info("FactionsPlugin disabled.");
+    }
+
+    /**
+     * Initializes the database connection and schema.
+     */
+    private void initializeDatabase() throws SQLException {
+        String dbType = getConfig().getString("database.type", "sqlite").toLowerCase();
+        databaseManager = new DatabaseManager(
+                dbType.equals("mysql") ? DatabaseManager.DatabaseType.MYSQL : DatabaseManager.DatabaseType.SQLITE,
+                getConfig().getString("database.host", "localhost"),
+                getConfig().getInt("database.port", 3306),
+                getConfig().getString("database.name", "factions"),
+                getConfig().getString("database.username", "factions"),
+                getConfig().getString("database.password", "")
+        );
+
+        File dataFolder = getDataFolder();
+        if (dbType.equals("sqlite")) {
+            File dbFile = new File(dataFolder, "factions.db");
+            databaseManager = new DatabaseManager(dbFile.getAbsolutePath());
+        }
+
+        databaseManager.initialize();
+        databaseManager.initializeSchema();
+    }
+
+    /**
+     * Initializes all services.
+     */
+    private void initializeServices() {
+        powerService = new PowerService(databaseManager);
+        factionService = new FactionService(databaseManager, powerService);
+        relationService = new RelationService(databaseManager);
+        claimService = new ClaimService(databaseManager, powerService, factionService);
+
+        powerService.start();
+    }
+
+    // Getters for services
+    public DatabaseManager getDatabaseManager() {
+        return databaseManager;
+    }
+
+    public FactionService getFactionService() {
+        return factionService;
+    }
+
+    public PowerService getPowerService() {
+        return powerService;
+    }
+
+    public ClaimService getClaimService() {
+        return claimService;
+    }
+
+    public RelationService getRelationService() {
+        return relationService;
+    }
+}

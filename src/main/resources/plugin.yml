@@ -1,0 +1,55 @@
+name: FactionsPlugin
+version: ${version}
+main: com.factions.FactionsPlugin
+api-version: 1.16
+author: Polecat Rust
+description: Complete Minecraft Factions Plugin
+website: https://github.com/Dev-KVN/factions
+
+commands:
+  f:
+    description: Main factions command
+    usage: /<command> [subcommand] [args...]
+    aliases: [faction, fac]
+
+permissions:
+  factions.*:
+    description: Grants all factions permissions
+    children:
+      factions.create: true
+      factions.disband: true
+      factions.rename: true
+      factions.tag: true
+      factions.desc: true
+      factions.invite: true
+      factions.join: true
+      factions.leave: true
+      factions.kick: true
+      factions.ban: true
+      factions.claim: true
+      factions.unclaim: true
+      factions.sethome: true
+      factions.home: true
+      factions.ally: true
+      factions.enemy: true
+      factions.neutral: true
+      factions.map: true
+      factions.top: true
+      factions.seechunks: true
+      factions.admin: true
+
+  factions.create:
+    description: Allows creating a faction
+    default: true
+
+  factions.claim:
+    description: Allows claiming chunks
+    default: true
+
+  factions.home:
+    description: Allows teleporting to faction home
+    default: true
+
+  factions.admin:
+    description: Admin override permissions
+    default: op

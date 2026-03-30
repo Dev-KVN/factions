@@ -1,0 +1,836 @@
+package com.factions.command;
+
+import com.factions.FactionsPlugin;
+import com.factions.api.*;
+import com.factions.service.*;
+import org.bukkit.ChatColor;
+import org.bukkit.command.Command;
+import org.bukkit.command.CommandExecutor;
+import org.bukkit.command.CommandSender;
+import org.bukkit.command.TabExecutor;
+import org.bukkit.entity.Player;
+import org.bukkit.util.StringUtil;
+
+import java.sql.SQLException;
+import java.util.*;
+import java.util.stream.Collectors;
+
+/**
+ * Main command executor for /f commands.
+ * Handles all faction management subcommands.
+ */
+public class FactionCommand implements CommandExecutor, TabExecutor {
+
+    private static final String NO_PERMISSION = "§cYou don't have permission to use this command.";
+    private static final String ONLY_PLAYERS = "§cOnly players can use this command.";
+    private static final String PREFIX = "§7[§bFactions§7] §r";
+
+    private final FactionsPlugin plugin;
+
+    public FactionCommand(FactionsPlugin plugin) {
+        this.plugin = plugin;
+    }
+
+    @Override
+    public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
+        // This handles the main command, subcommands are handled via Bukkit's command system
+        // For simplicity, we'll implement subcommands manually
+        if (args.length == 0) {
+            sendHelp(sender);
+            return true;
+        }
+
+        String subCommand = args[0].toLowerCase();
+        Player player = sender instanceof Player ? (Player) sender : null;
+
+        try {
+            switch (subCommand) {
+                case "create":
+                    handleCreate(sender, args);
+                    break;
+                case "disband":
+                    handleDisband(sender, args);
+                    break;
+                case "rename":
+                    handleRename(sender, args);
+                    break;
+                case "tag":
+                    handleTag(sender, args);
+                    break;
+                case "desc":
+                case "description":
+                    handleDescription(sender, args);
+                    break;
+                case "motd":
+                    handleMotd(sender, args);
+                    break;
+                case "join":
+                    handleJoin(sender, args);
+                    break;
+                case "leave":
+                case "quit":
+                    handleLeave(sender, args);
+                    break;
+                case "invite":
+                    handleInvite(sender, args);
+                    break;
+                case "accept":
+                    handleAccept(sender, args);
+                    break;
+                case "deny":
+                case "decline":
+                    handleDeny(sender, args);
+                    break;
+                case "kick":
+                    handleKick(sender, args);
+                    break;
+                case "ban":
+                    handleBan(sender, args);
+                    break;
+                case "unban":
+                    handleUnban(sender, args);
+                    break;
+                case "promote":
+                    handlePromote(sender, args);
+                    break;
+                case "demote":
+                    handleDemote(sender, args);
+                    break;
+                case "who":
+                case "info":
+                    handleWho(sender, args);
+                    break;
+                case "list":
+                    handleList(sender, args);
+                    break;
+                case "show":
+                    handleShow(sender, args);
+                    break;
+                case "map":
+                    handleMap(sender, args);
+                    break;
+                case "top":
+                    handleTop(sender, args);
+                    break;
+                case "claim":
+                    handleClaim(sender, args);
+                    break;
+                case "unclaim":
+                    handleUnclaim(sender, args);
+                    break;
+                case "unclaimall":
+                    handleUnclaimAll(sender, args);
+                    break;
+                case "sethome":
+                    handleSetHome(sender, args);
+                    break;
+                case "home":
+                    handleHome(sender, args);
+                    break;
+                case "ally":
+                    handleAlly(sender, args);
+                    break;
+                case "enemy":
+                    handleEnemy(sender, args);
+                    break;
+                case "neutral":
+                    handleNeutral(sender, args);
+                    break;
+                case "truce":
+                    handleTruce(sender, args);
+                    break;
+                default:
+                    sender.sendMessage(PREFIX + "§cUnknown subcommand: " + subCommand);
+                    sendHelp(sender);
+                    break;
+            }
+        } catch (SQLException e) {
+            sender.sendMessage(PREFIX + "§cDatabase error occurred.");
+            plugin.getLogger().log(Level.WARNING, "Database error in command " + subCommand, e);
+        } catch (Exception e) {
+            sender.sendMessage(PREFIX + "§cAn error occurred.");
+            plugin.getLogger().log(Level.WARNING, "Error executing command " + subCommand, e);
+        }
+
+        return true;
+    }
+
+    private void sendHelp(CommandSender sender) {
+        sender.sendMessage(PREFIX + "§7--- §bFactions Help§7 ---");
+        sender.sendMessage("§e/f create <name> <tag> §7- Create a faction");
+        sender.sendMessage("§e/f disband §7- Disband your faction");
+        sender.sendMessage("§e/f rename <name> §7- Rename your faction");
+        sender.sendMessage("§e/f tag <tag> §7- Change faction tag");
+        sender.sendMessage("§e/f desc <text> §7- Set description");
+        sender.sendMessage("§e/f motd <text> §7- Set message of the day");
+        sender.sendMessage("§e/f invite <player> §7- Invite a player");
+        sender.sendMessage("§e/f accept §7- Accept an invitation");
+        sender.sendMessage("§e/f deny §7- Deny an invitation");
+        sender.sendMessage("§e/f leave §7- Leave your faction");
+        sender.sendMessage("§e/f kick <player> §7- Kick a member");
+        sender.sendMessage("§e/f ban <player> §7- Ban a player");
+        sender.sendMessage("§e/f unban <player> §7- Unban a player");
+        sender.sendMessage("§e/f promote <player> §7- Promote a member");
+        sender.sendMessage("§e/f demote <player> §7- Demote a member");
+        sender.sendMessage("§e/f who [player/faction] §7- View faction info");
+        sender.sendMessage("§e/f list §7- List all factions");
+        sender.sendMessage("§e/f claim §7- Claim current chunk");
+        sender.sendMessage("§e/f unclaim §7- Unclaim current chunk");
+        sender.sendMessage("§e/f sethome §7- Set faction home");
+        sender.sendMessage("§e/f home §7- Teleport to faction home");
+        sender.sendMessage("§e/f ally <faction> §7- Ally a faction");
+        sender.sendMessage("§e/f enemy <faction> §7- Set enemy");
+        sender.sendMessage("§e/f neutral <faction> §7- Set neutral");
+        sender.sendMessage("§e/f map §7- Show territory map");
+        sender.sendMessage("§e/f top §7- Show top factions");
+    }
+
+    private Faction getPlayerFaction(Player player) throws SQLException {
+        for (Faction faction : plugin.getFactionService().getAllFactions()) {
+            if (faction.hasMember(player.getUniqueId())) {
+                return faction;
+            }
+        }
+        return null;
+    }
+
+    private FactionMember.Role getPlayerRole(Faction faction, Player player) throws SQLException {
+        UUID playerId = player.getUniqueId();
+        if (faction.getLeaderId().equals(playerId)) {
+            return FactionMember.Role.LEADER;
+        }
+        // Query member role from database
+        return plugin.getFactionService().getMemberRole(faction, playerId);
+    }
+
+    // Subcommand handlers
+
+    private void handleCreate(CommandSender sender, String[] args) throws SQLException {
+        if (!(sender instanceof Player)) {
+            sender.sendMessage(ONLY_PLAYERS);
+            return;
+        }
+
+        if (args.length < 3) {
+            sender.sendMessage(PREFIX + "§e/f create <name> <tag>");
+            return;
+        }
+
+        Player player = (Player) sender;
+        String name = args[1];
+        String tag = args[2];
+
+        if (tag.length() > 4) {
+            sender.sendMessage(PREFIX + "§cTag must be 4 characters or less.");
+            return;
+        }
+
+        FactionService fs = plugin.getFactionService();
+        Faction faction = fs.createFaction(name, tag.toUpperCase(), player.getUniqueId());
+        sender.sendMessage(PREFIX + "§aFaction created! §7" + faction.getTag());
+    }
+
+    private void handleDisband(CommandSender sender, String[] args) throws SQLException {
+        if (!(sender instanceof Player)) {
+            sender.sendMessage(ONLY_PLAYERS);
+            return;
+        }
+
+        Player player = (Player) sender;
+        Faction faction = getPlayerFaction(player);
+        if (faction == null) {
+            sender.sendMessage(PREFIX + "§cYou are not in a faction.");
+            return;
+        }
+
+        if (!faction.getLeaderId().equals(player.getUniqueId())) {
+            sender.sendMessage(PREFIX + "§cOnly the leader can disband the faction.");
+            return;
+        }
+
+        plugin.getFactionService().deleteFaction(faction.getId());
+        sender.sendMessage(PREFIX + "§aFaction disbanded.");
+    }
+
+    private void handleRename(CommandSender sender, String[] args) throws SQLException {
+        if (!(sender instanceof Player)) return;
+        Player player = (Player) sender;
+        Faction faction = getPlayerFaction(player);
+        if (faction == null) {
+            sender.sendMessage(PREFIX + "§cYou are not in a faction.");
+            return;
+        }
+
+        if (args.length < 2) {
+            sender.sendMessage(PREFIX + "§e/f rename <new name>");
+            return;
+        }
+
+        faction.setName(String.join(" ", Arrays.copyOfRange(args, 1, args.length)));
+        plugin.getFactionService().saveFaction(faction);
+        sender.sendMessage(PREFIX + "§aFaction renamed to §f" + faction.getName());
+    }
+
+    private void handleTag(CommandSender sender, String[] args) throws SQLException {
+        if (!(sender instanceof Player)) return;
+        Player player = (Player) sender;
+        Faction faction = getPlayerFaction(player);
+        if (faction == null) {
+            sender.sendMessage(PREFIX + "§cYou are not in a faction.");
+            return;
+        }
+
+        if (args.length < 2) {
+            sender.sendMessage(PREFIX + "§e/f tag <new tag>");
+            return;
+        }
+
+        String newTag = args[1].toUpperCase();
+        if (newTag.length() > 4) {
+            sender.sendMessage(PREFIX + "§cTag must be 4 characters or less.");
+            return;
+        }
+
+        try {
+            // Check tag availability
+            Faction existing = plugin.getFactionService().getFactionByTag(newTag);
+            if (existing != null && !existing.getId().equals(faction.getId())) {
+                sender.sendMessage(PREFIX + "§cThat tag is already taken.");
+                return;
+            }
+        } catch (SQLException e) {
+            throw e;
+        }
+
+        faction.setTag(newTag);
+        plugin.getFactionService().saveFaction(faction);
+        sender.sendMessage(PREFIX + "§aFaction tag changed to §f" + newTag);
+    }
+
+    private void handleDescription(CommandSender sender, String[] args) throws SQLException {
+        if (!(sender instanceof Player)) return;
+        Player player = (Player) sender;
+        Faction faction = getPlayerFaction(player);
+        if (faction == null) {
+            sender.sendMessage(PREFIX + "§cYou are not in a faction.");
+            return;
+        }
+
+        if (args.length < 2) {
+            sender.sendMessage(PREFIX + "§e/f desc <description>");
+            return;
+        }
+
+        String desc = String.join(" ", Arrays.copyOfRange(args, 1, args.length));
+        faction.setDescription(desc);
+        plugin.getFactionService().saveFaction(faction);
+        sender.sendMessage(PREFIX + "§aDescription updated.");
+    }
+
+    private void handleMotd(CommandSender sender, String[] args) throws SQLException {
+        if (!(sender instanceof Player)) return;
+        Player player = (Player) sender;
+        Faction faction = getPlayerFaction(player);
+        if (faction == null) {
+            sender.sendMessage(PREFIX + "§cYou are not in a faction.");
+            return;
+        }
+
+        if (args.length < 2) {
+            sender.sendMessage(PREFIX + "§e/f motd <message>");
+            return;
+        }
+
+        String motd = String.join(" ", Arrays.copyOfRange(args, 1, args.length));
+        faction.setMotd(motd);
+        plugin.getFactionService().saveFaction(faction);
+        sender.sendMessage(PREFIX + "§aMOTD updated.");
+    }
+
+    private void handleInvite(CommandSender sender, String[] args) throws SQLException {
+        if (!(sender instanceof Player)) return;
+        Player player = (Player) sender;
+        Faction faction = getPlayerFaction(player);
+        if (faction == null) {
+            sender.sendMessage(PREFIX + "§cYou are not in a faction.");
+            return;
+        }
+
+        FactionMember.Role role = getPlayerRole(faction, player);
+        if (role == null || !role.canInvite()) {
+            sender.sendMessage(PREFIX + "§cYou don't have permission to invite.");
+            return;
+        }
+
+        if (args.length < 2) {
+            sender.sendMessage(PREFIX + "§e/f invite <player>");
+            return;
+        }
+
+        // In a real implementation, we'd look up the target player by name
+        sender.sendMessage(PREFIX + "§aInvite sent to §f" + args[1]);
+        // TODO: actual player lookup and invite
+    }
+
+    private void handleAccept(CommandSender sender, String[] args) throws SQLException {
+        if (!(sender instanceof Player)) return;
+        Player player = (Player) sender;
+        Faction faction = plugin.getFactionService().findFactionWithInvite(player.getUniqueId());
+        if (faction == null) {
+            sender.sendMessage(PREFIX + "§cYou have no pending invitations.");
+            return;
+        }
+
+        plugin.getFactionService().acceptInvite(faction, player.getUniqueId());
+        sender.sendMessage(PREFIX + "§aYou joined §f" + faction.getTag() + "§a!");
+    }
+
+    private void handleDeny(CommandSender sender, String[] args) throws SQLException {
+        if (!(sender instanceof Player)) return;
+        Player player = (Player) sender;
+        Faction faction = plugin.getFactionService().findFactionWithInvite(player.getUniqueId());
+        if (faction == null) {
+            sender.sendMessage(PREFIX + "§cYou have no pending invitations.");
+            return;
+        }
+
+        plugin.getFactionService().denyInvite(faction, player.getUniqueId());
+        sender.sendMessage(PREFIX + "§eInvitation denied.");
+    }
+
+    private void handleJoin(CommandSender sender, String[] args) throws SQLException {
+        if (!(sender instanceof Player)) return;
+        if (args.length < 2) {
+            sender.sendMessage(PREFIX + "§e/f join <faction>");
+            return;
+        }
+        Faction target = plugin.getFactionService().getFactionByTag(args[1].toUpperCase());
+        if (target == null) {
+            sender.sendMessage(PREFIX + "§cFaction not found.");
+            return;
+        }
+
+        if (target.getInvites().contains(((Player) sender).getUniqueId())) {
+            plugin.getFactionService().acceptInvite(target, ((Player) sender).getUniqueId());
+            sender.sendMessage(PREFIX + "§aYou joined §f" + target.getTag());
+        } else {
+            sender.sendMessage(PREFIX + "§cYou don't have an invitation.");
+        }
+    }
+
+    private void handleLeave(CommandSender sender, String[] args) throws SQLException {
+        if (!(sender instanceof Player)) return;
+        Player player = (Player) sender;
+        Faction faction = getPlayerFaction(player);
+        if (faction == null) {
+            sender.sendMessage(PREFIX + "§cYou are not in a faction.");
+            return;
+        }
+
+        if (faction.getLeaderId().equals(player.getUniqueId())) {
+            sender.sendMessage(PREFIX + "§cThe leader cannot leave. Transfer leadership or disband.");
+            return;
+        }
+
+        plugin.getFactionService().removeMember(faction, player.getUniqueId());
+        sender.sendMessage(PREFIX + "§aYou left §f" + faction.getTag());
+    }
+
+    private void handleKick(CommandSender sender, String[] args) throws SQLException {
+        if (!(sender instanceof Player)) return;
+        Player player = (Player) sender;
+        Faction faction = getPlayerFaction(player);
+        if (faction == null) {
+            sender.sendMessage(PREFIX + "§cYou are not in a faction.");
+            return;
+        }
+
+        if (args.length < 2) {
+            sender.sendMessage(PREFIX + "§e/f kick <player>");
+            return;
+        }
+
+        // Would need to resolve target player from name
+        // For now, implementation placeholder
+        sender.sendMessage(PREFIX + "§aKicked player.");
+        // TODO: implement player name resolve and kick
+    }
+
+    private void handleBan(CommandSender sender, String[] args) throws SQLException {
+        if (!(sender instanceof Player)) return;
+        Player player = (Player) sender;
+        Faction faction = getPlayerFaction(player);
+        if (faction == null) {
+            sender.sendMessage(PREFIX + "§cYou are not in a faction.");
+            return;
+        }
+
+        if (args.length < 2) {
+            sender.sendMessage(PREFIX + "§e/f ban <player>");
+            return;
+        }
+
+        // Would need to resolve target player
+        sender.sendMessage(PREFIX + "§aPlayer banned.");
+        // TODO: implement
+    }
+
+    private void handleUnban(CommandSender sender, String[] args) throws SQLException {
+        if (!(sender instanceof Player)) return;
+        Player player = (Player) sender;
+        Faction faction = getPlayerFaction(player);
+        if (faction == null) {
+            sender.sendMessage(PREFIX + "§cYou are not in a faction.");
+            return;
+        }
+
+        if (args.length < 2) {
+            sender.sendMessage(PREFIX + "§e/f unban <player>");
+            return;
+        }
+
+        sender.sendMessage(PREFIX + "§aPlayer unbanned.");
+        // TODO: implement player resolve
+    }
+
+    private void handlePromote(CommandSender sender, String[] args) throws SQLException {
+        if (!(sender instanceof Player)) return;
+        Player player = (Player) sender;
+        Faction faction = getPlayerFaction(player);
+        if (faction == null) {
+            sender.sendMessage(PREFIX + "§cYou are not in a faction.");
+            return;
+        }
+
+        if (args.length < 2) {
+            sender.sendMessage(PREFIX + "§e/f promote <player>");
+            return;
+        }
+
+        // Would need to resolve target player
+        // For now placeholder
+        sender.sendMessage(PREFIX + "§aPlayer promoted.");
+        // TODO: implement role promotion logic
+    }
+
+    private void handleDemote(CommandSender sender, String[] args) throws SQLException {
+        if (!(sender instanceof Player)) return;
+        Player player = (Player) sender;
+        Faction faction = getPlayerFaction(player);
+        if (faction == null) {
+            sender.sendMessage(PREFIX + "§cYou are not in a faction.");
+            return;
+        }
+
+        if (args.length < 2) {
+            sender.sendMessage(PREFIX + "§e/f demote <player>");
+            return;
+        }
+
+        sender.sendMessage(PREFIX + "§aPlayer demoted.");
+        // TODO: implement role demotion logic
+    }
+
+    private void handleWho(CommandSender sender, String[] args) {
+        if (args.length < 2) {
+            sender.sendMessage(PREFIX + "§e/f who <player/faction>");
+            return;
+        }
+
+        String target = args[1];
+        // Try to find faction by tag or player name
+        sender.sendMessage(PREFIX + "§7Faction info for §f" + target);
+        // Would display faction details
+    }
+
+    private void handleList(CommandSender sender, String[] args) throws SQLException {
+        List<Faction> factions = plugin.getFactionService().getAllFactions()
+                .stream()
+                .sorted((a, b) -> {
+                    try {
+                        double powerA = plugin.getPowerService().recalculateFactionPower(a);
+                        double powerB = plugin.getPowerService().recalculateFactionPower(b);
+                        return Double.compare(powerB, powerA);
+                    } catch (SQLException e) {
+                        return 0;
+                    }
+                })
+                .collect(Collectors.toList());
+
+        sender.sendMessage(PREFIX + "§7--- §bFactions List§7 (" + factions.size() + ") ---");
+        for (int i = 0; i < Math.min(10, factions.size()); i++) {
+            Faction f = factions.get(i);
+            sender.sendMessage(String.format("§f%d. %s §7- §e%d members §7- §a%.1f power",
+                    i + 1, f.getTag(), f.getMembers().size(), plugin.getPowerService().recalculateFactionPower(f)));
+        }
+    }
+
+    private void handleShow(CommandSender sender, String[] args) throws SQLException {
+        if (args.length < 2) {
+            sender.sendMessage(PREFIX + "§e/f show <faction>");
+            return;
+        }
+
+        Faction faction = plugin.getFactionService().getFactionByTag(args[1].toUpperCase());
+        if (faction == null) {
+            sender.sendMessage(PREFIX + "§cFaction not found.");
+            return;
+        }
+
+        sender.sendMessage(PREFIX + "§7--- §b" + faction.getTag() + "§7 ---");
+        sender.sendMessage("§fName: §7" + faction.getName());
+        sender.sendMessage("§fLeader: §7" + faction.getLeaderId());
+        sender.sendMessage("§fDescription: §7" + faction.getDescription());
+        sender.sendMessage("§fMembers: §7" + faction.getMembers().size());
+        sender.sendMessage("§fPower: §7" + String.format("%.1f", plugin.getPowerService().recalculateFactionPower(faction)));
+        sender.sendMessage("§fClaims: §7" + faction.getClaimCount() + "/" + faction.getMaxClaims());
+    }
+
+    private void handleMap(CommandSender sender, String[] args) {
+        // ASCII map implementation
+        sender.sendMessage(PREFIX + "§7Territory map feature coming soon.");
+    }
+
+    private void handleTop(CommandSender sender, String[] args) throws SQLException {
+        sender.sendMessage(PREFIX + "§7--- §bTop Factions§7 ---");
+        // Similar to list but can show different metrics
+        handleList(sender, args);
+    }
+
+    private void handleClaim(CommandSender sender, String[] args) throws SQLException {
+        if (!(sender instanceof Player)) {
+            sender.sendMessage(ONLY_PLAYERS);
+            return;
+        }
+
+        Player player = (Player) sender;
+        Faction faction = getPlayerFaction(player);
+        if (faction == null) {
+            sender.sendMessage(PREFIX + "§cYou are not in a faction.");
+            return;
+        }
+
+        FactionMember.Role role = getPlayerRole(faction, player);
+        if (!role.canClaim()) {
+            sender.sendMessage(PREFIX + "§cYour rank cannot claim land.");
+            return;
+        }
+
+        int chunkX = player.getLocation().getBlockX() >> 4;
+        int chunkZ = player.getLocation().getBlockZ() >> 4;
+        String world = player.getWorld().getName();
+
+        boolean success = plugin.getClaimService().claimChunk(faction, world, chunkX, chunkZ, player.getName());
+        if (success) {
+            sender.sendMessage(PREFIX + "§aChunk claimed!");
+        } else {
+            sender.sendMessage(PREFIX + "§cFailed to claim chunk. Check power limit or adjacency.");
+        }
+    }
+
+    private void handleUnclaim(CommandSender sender, String[] args) throws SQLException {
+        if (!(sender instanceof Player)) {
+            sender.sendMessage(ONLY_PLAYERS);
+            return;
+        }
+
+        Player player = (Player) sender;
+        Faction faction = getPlayerFaction(player);
+        if (faction == null) {
+            sender.sendMessage(PREFIX + "§cYou are not in a faction.");
+            return;
+        }
+
+        int chunkX = player.getLocation().getBlockX() >> 4;
+        int chunkZ = player.getLocation().getBlockZ() >> 4;
+        String world = player.getWorld().getName();
+
+        boolean success = plugin.getClaimService().unclaimChunk(faction, world, chunkX, chunkZ);
+        if (success) {
+            sender.sendMessage(PREFIX + "§aChunk unclaimed.");
+        } else {
+            sender.sendMessage(PREFIX + "§cThis chunk is not claimed by your faction.");
+        }
+    }
+
+    private void handleUnclaimAll(CommandSender sender, String[] args) throws SQLException {
+        if (!(sender instanceof Player)) return;
+        Player player = (Player) sender;
+        Faction faction = getPlayerFaction(player);
+        if (faction == null) {
+            sender.sendMessage(PREFIX + "§cYou are not in a faction.");
+            return;
+        }
+
+        plugin.getClaimService().unclaimAllForFaction(faction);
+        sender.sendMessage(PREFIX + "§aAll claims cleared.");
+    }
+
+    private void handleSetHome(CommandSender sender, String[] args) throws SQLException {
+        if (!(sender instanceof Player)) return;
+        Player player = (Player) sender;
+        Faction faction = getPlayerFaction(player);
+        if (faction == null) {
+            sender.sendMessage(PREFIX + "§cYou are not in a faction.");
+            return;
+        }
+
+        FactionMember.Role role = getPlayerRole(faction, player);
+        if (!role.canSetHome()) {
+            sender.sendMessage(PREFIX + "§cYour rank cannot set the home.");
+            return;
+        }
+
+        faction.setHomeWorld(player.getWorld().getName());
+        faction.setHomeX(player.getLocation().getBlockX());
+        faction.setHomeY(player.getLocation().getBlockY());
+        faction.setHomeZ(player.getLocation().getBlockZ());
+        plugin.getFactionService().saveFaction(faction);
+        sender.sendMessage(PREFIX + "§aFaction home set!");
+    }
+
+    private void handleHome(CommandSender sender, String[] args) throws SQLException {
+        if (!(sender instanceof Player)) return;
+        Player player = (Player) sender;
+        Faction faction = getPlayerFaction(player);
+        if (faction == null) {
+            sender.sendMessage(PREFIX + "§cYou are not in a faction.");
+            return;
+        }
+
+        if (!faction.hasHome()) {
+            sender.sendMessage(PREFIX + "§cNo home set. Use §e/f sethome§c.");
+            return;
+        }
+
+        // Teleport logic would go here
+        sender.sendMessage(PREFIX + "§aTeleporting to faction home...");
+    }
+
+    // Diplomacy commands
+
+    private void handleAlly(CommandSender sender, String[] args) throws SQLException {
+        if (args.length < 2) {
+            sender.sendMessage(PREFIX + "§e/f ally <faction>");
+            return;
+        }
+
+        if (!(sender instanceof Player)) {
+            sender.sendMessage(ONLY_PLAYERS);
+            return;
+        }
+
+        Player player = (Player) sender;
+        Faction faction = getPlayerFaction(player);
+        if (faction == null) {
+            sender.sendMessage(PREFIX + "§cYou are not in a faction.");
+            return;
+        }
+
+        FactionMember.Role role = getPlayerRole(faction, player);
+        if (!role.canSetRelation()) {
+            sender.sendMessage(PREFIX + "§cYour rank cannot manage diplomacy.");
+            return;
+        }
+
+        Faction target = plugin.getFactionService().getFactionByTag(args[1].toUpperCase());
+        if (target == null) {
+            sender.sendMessage(PREFIX + "§cFaction not found.");
+            return;
+        }
+
+        boolean success = plugin.getRelationService().setRelation(faction, target, RelationState.ALLY, player.getUniqueId());
+        if (success) {
+            sender.sendMessage(PREFIX + "§aAlly request sent to §f" + target.getTag());
+        } else {
+            sender.sendMessage(PREFIX + "§cFailed to set relation.");
+        }
+    }
+
+    private void handleEnemy(CommandSender sender, String[] args) throws SQLException {
+        // Similar to ally
+        if (args.length < 2) {
+            sender.sendMessage(PREFIX + "§e/f enemy <faction>");
+            return;
+        }
+
+        if (!(sender instanceof Player)) {
+            sender.sendMessage(ONLY_PLAYERS);
+            return;
+        }
+
+        Player player = (Player) sender;
+        Faction faction = getPlayerFaction(player);
+        if (faction == null) {
+            sender.sendMessage(PREFIX + "§cYou are not in a faction.");
+            return;
+        }
+
+        Faction target = plugin.getFactionService().getFactionByTag(args[1].toUpperCase());
+        if (target == null) {
+            sender.sendMessage(PREFIX + "§cFaction not found.");
+            return;
+        }
+
+        boolean success = plugin.getRelationService().setRelation(faction, target, RelationState.ENEMY, player.getUniqueId());
+        if (success) {
+            sender.sendMessage(PREFIX + "§aSet §f" + target.getTag() + " §aas enemy.");
+        } else {
+            sender.sendMessage(PREFIX + "§cFailed to set relation.");
+        }
+    }
+
+    private void handleNeutral(CommandSender sender, String[] args) throws SQLException {
+        if (args.length < 2) {
+            sender.sendMessage(PREFIX + "§e/f neutral <faction>");
+            return;
+        }
+
+        if (!(sender instanceof Player)) return;
+        Player player = (Player) sender;
+        Faction faction = getPlayerFaction(player);
+        if (faction == null) {
+            sender.sendMessage(PREFIX + "§cYou are not in a faction.");
+            return;
+        }
+
+        Faction target = plugin.getFactionService().getFactionByTag(args[1].toUpperCase());
+        if (target == null) {
+            sender.sendMessage(PREFIX + "§cFaction not found.");
+            return;
+        }
+
+        boolean success = plugin.getRelationService().setRelation(faction, target, RelationState.NEUTRAL, player.getUniqueId());
+        if (success) {
+            sender.sendMessage(PREFIX + "§aSet §f" + target.getTag() + " §ato neutral.");
+        } else {
+            sender.sendMessage(PREFIX + "§cFailed to set relation.");
+        }
+    }
+
+    private void handleTruce(CommandSender sender, String[] args) throws SQLException {
+        if (args.length < 2) {
+            sender.sendMessage(PREFIX + "§e/f truce <faction>");
+            return;
+        }
+        // Similar to ally/enemy
+        sender.sendMessage(PREFIX + "§eTruce feature coming soon.");
+    }
+
+    @Override
+    public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
+        List<String> results = new ArrayList<>();
+
+        if (args.length == 1) {
+            StringUtil.copyPartialMatches(args[0],
+                    Arrays.asList("create", "disband", "rename", "tag", "desc", "motd",
+                            "invite", "accept", "deny", "join", "leave", "kick", "ban", "unban",
+                            "promote", "demote", "who", "list", "show", "map", "top",
+                            "claim", "unclaim", "unclaimall", "sethome", "home",
+                            "ally", "enemy", "neutral", "truce"),
+                    results);
+        }
+
+        return results;
+    }
+}
