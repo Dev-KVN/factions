@@ -18,7 +18,7 @@ public class PlayerPowerMapper {
     }
 
     public void insert(UUID playerId, double power, double maxPower, long lastUpdate) throws SQLException {
-        String sql = "INSERT INTO player_power (player_id, power, max_power, last_update) VALUES (?, ?, ?, ?)";
+        String sql = "INSERT INTO player_power (player_id, power, max_power, last_update, death_count) VALUES (?, ?, ?, ?, ?)";
         try (Connection conn = db.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
 
@@ -26,22 +26,38 @@ public class PlayerPowerMapper {
             stmt.setDouble(2, power);
             stmt.setDouble(3, maxPower);
             stmt.setLong(4, lastUpdate);
+            stmt.setInt(5, 0); // initial death count = 0
             stmt.executeUpdate();
         }
     }
 
-    public void update(UUID playerId, double power, double maxPower, long lastUpdate, long lastDeath) throws SQLException {
-        String sql = "UPDATE player_power SET power = ?, max_power = ?, last_update = ?, last_death = ? WHERE player_id = ?";
+    public void update(UUID playerId, double power, double maxPower, long lastUpdate, int deathCount) throws SQLException {
+        String sql = "UPDATE player_power SET power = ?, max_power = ?, last_update = ?, death_count = ? WHERE player_id = ?";
         try (Connection conn = db.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
 
             stmt.setDouble(1, power);
             stmt.setDouble(2, maxPower);
             stmt.setLong(3, lastUpdate);
-            stmt.setLong(4, lastDeath);
+            stmt.setInt(4, deathCount);
             stmt.setString(5, playerId.toString());
             stmt.executeUpdate();
         }
+    }
+
+    public int getDeathCount(UUID playerId) throws SQLException {
+        String sql = "SELECT death_count FROM player_power WHERE player_id = ?";
+        try (Connection conn = db.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            stmt.setString(1, playerId.toString());
+            try (ResultSet rs = stmt.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getInt("death_count");
+                }
+            }
+        }
+        return 0;
     }
 
     public double getPower(UUID playerId) throws SQLException {

@@ -60,28 +60,6 @@ public class PlayerListener implements Listener {
         LOGGER.fine("Player " + player.getName() + " quit, power decay started");
     }
 
-    @EventHandler(priority = EventPriority.HIGH)
-    public void onPlayerDeath(PlayerDeathEvent event) {
-        Player player = event.getPlayer();
-        PowerService powerService = plugin.getPowerService();
-
-        // Apply power loss on death
-        double deathPenaltyPercent = plugin.getConfig().getDouble("power.death-penalty-percent", 10.0);
-        powerService.applyDeathPenalty(player.getUniqueId(), deathPenaltyPercent);
-
-        // Update faction power
-        try {
-            Faction faction = getPlayerFaction(player);
-            if (faction != null) {
-                powerService.recalculateFactionPower(faction);
-            }
-        } catch (Exception e) {
-            LOGGER.log(Level.WARNING, "Failed to update faction power after death", e);
-        }
-
-        LOGGER.info("Player " + player.getName() + " died, applied " + deathPenaltyPercent + "% power penalty");
-    }
-
     @EventHandler(priority = EventPriority.LOW)
     public void onPlayerRespawn(PlayerRespawnEvent event) {
         // Could add power-related effects on respawn

@@ -224,6 +224,7 @@ public class DatabaseManager {
                 + "  max_power DOUBLE DEFAULT 1000.0,\n"
                 + "  last_update BIGINT NOT NULL,\n"
                 + "  last_death BIGINT DEFAULT 0,\n"
+                + "  death_count INT DEFAULT 0,\n"
                 + "  INDEX idx_power (power DESC)\n"
                 + ");";
     }
@@ -307,7 +308,8 @@ public class DatabaseManager {
                 + "  power REAL DEFAULT 0.0,\n"
                 + "  max_power REAL DEFAULT 1000.0,\n"
                 + "  last_update INTEGER NOT NULL,\n"
-                + "  last_death INTEGER DEFAULT 0\n"
+                + "  last_death INTEGER DEFAULT 0,\n"
+                + "  death_count INTEGER DEFAULT 0\n"
                 + ");";
     }
 }

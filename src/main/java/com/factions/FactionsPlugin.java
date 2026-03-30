@@ -2,11 +2,14 @@ package com.factions;
 
 import com.factions.api.FactionService;
 import com.factions.api.FactionsAPI;
+import com.factions.config.PowerConfiguration;
+import com.factions.listeners.PowerLossListener;
 import com.factions.persistence.DatabaseManager;
 import com.factions.service.ClaimService;
 import com.factions.service.FactionService;
 import com.factions.service.PowerService;
 import com.factions.service.RelationService;
+import com.factions.task.PowerTask;
 import com.factions.command.FactionCommand;
 import org.bukkit.plugin.java.JavaPlugin;
 
@@ -103,12 +106,56 @@ public class FactionsPlugin extends JavaPlugin {
      * Initializes all services.
      */
     private void initializeServices() {
-        powerService = new PowerService(databaseManager);
+        // Build power configuration from plugin config
+        PowerConfiguration powerConfig = buildPowerConfiguration();
+
+        // Initialize power service with configuration
+        powerService = new PowerService(databaseManager, powerConfig);
         factionService = new FactionService(databaseManager, powerService);
         relationService = new RelationService(databaseManager);
         claimService = new ClaimService(databaseManager, powerService, factionService);
 
-        powerService.start();
+        // Register power loss listener
+        getServer().getPluginManager().registerEvents(new PowerLossListener(this), this);
+
+        // Start periodic power update task (every 5 minutes)
+        PowerTask powerTask = new PowerTask(powerService, this, 5);
+        powerTask.start();
+    }
+
+    /**
+     * Builds PowerConfiguration from the plugin's config.yml.
+     */
+    private PowerConfiguration buildPowerConfiguration() {
+        double maxPower = getConfig().getDouble("power.max-power", 1000.0);
+        double gainRate = getConfig().getDouble("power.regen-rate", 1.0);
+        double deathPenaltyPercent = getConfig().getDouble("power.death-penalty-percent", 10.0);
+        double minClaimsPerPower = getConfig().getDouble("power.min-claims-per-power", 0.01);
+
+        // Parse offline mode
+        String offlineModeStr = getConfig().getString("power.offline-mode", "decay").toLowerCase();
+        PowerConfiguration.OfflineMode offlineMode = PowerConfiguration.OfflineMode.DECAY;
+        try {
+            offlineMode = PowerConfiguration.OfflineMode.valueOf(offlineModeStr.toUpperCase());
+        } catch (IllegalArgumentException e) {
+            getLogger().warning("Invalid offline-mode in config: " + offlineModeStr + ", defaulting to DECAY");
+        }
+
+        // The spec mentions minutesPerPoint and incrementPerDay, but config doesn't have them.
+        // We'll use gainRate as power per minute and daysPlayed not implemented yet.
+        // These can be added later if needed.
+        double minutesPerPoint = 1.0 / gainRate; // 1 point per minute if gainRate=1
+        double incrementPerDay = 0; // Not used in current design
+
+        return new PowerConfiguration(
+            maxPower,
+            gainRate,
+            deathPenaltyPercent,
+            offlineMode,
+            minutesPerPoint,
+            incrementPerDay,
+            minClaimsPerPower
+        );
     }
 
     // Getters for services

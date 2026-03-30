@@ -1,7 +1,7 @@
 package com.factions.service;
 
 import com.factions.api.Faction;
-import com.factions.api.FactionMember;
+import com.factions.config.PowerConfiguration;
 import com.factions.persistence.DatabaseManager;
 import com.factions.persistence.PlayerPowerMapper;
 
@@ -23,58 +23,26 @@ public class PowerService {
 
     private static final Logger LOGGER = Logger.getLogger(PowerService.class.getName());
 
-    public static final double DEFAULT_MAX_POWER = 1000.0;
-    public static final double POWER_REGEN_RATE = 1.0; // per minute while online
-    public static final double OFFLINE_DECAY_RATE = 0.5; // per hour while offline
-    public static final long POWER_UPDATE_INTERVAL = 60 * 1000; // 1 minute
-
+    private final PowerConfiguration config;
     private final DatabaseManager db;
     private final PlayerPowerMapper playerPowerMapper;
     private final Map<UUID, Double> playerPowerCache; // playerId -> current power
-    private final Map<UUID, Long> lastPowerUpdate; // playerId -> last update timestamp
     private final Map<UUID, Double> maxPowerCache; // playerId -> max power
+    private final Map<UUID, Integer> deathCountCache; // playerId -> death count
+    private final Map<UUID, Long> lastPowerUpdate; // playerId -> last update timestamp
     private final Set<UUID> onlinePlayers;
 
-    private final ScheduledExecutorService scheduler;
-
-    public PowerService(DatabaseManager db) {
+    public PowerService(DatabaseManager db, PowerConfiguration config) {
+        this.config = config;
         this.db = db;
         this.playerPowerMapper = new PlayerPowerMapper(db);
         this.playerPowerCache = new ConcurrentHashMap<>();
-        this.lastPowerUpdate = new ConcurrentHashMap<>();
         this.maxPowerCache = new ConcurrentHashMap<>();
+        this.deathCountCache = new ConcurrentHashMap<>();
+        this.lastPowerUpdate = new ConcurrentHashMap<>();
         this.onlinePlayers = ConcurrentHashMap.newKeySet();
-        this.scheduler = Executors.newSingleThreadScheduledExecutor(r -> {
-            Thread t = new Thread(r, "PowerService-Task");
-            t.setDaemon(true);
-            return t;
-        });
 
         loadAllPowerFromDb();
-    }
-
-    /**
-     * Starts the power regeneration scheduler.
-     */
-    public void start() {
-        scheduler.scheduleAtFixedRate(this::updateAllPower, POWER_UPDATE_INTERVAL,
-                                            POWER_UPDATE_INTERVAL, TimeUnit.MILLISECONDS);
-        LOGGER.info("Power regeneration scheduler started");
-    }
-
-    /**
-     * Stops the power scheduler.
-     */
-    public void shutdown() {
-        scheduler.shutdown();
-        try {
-            if (!scheduler.awaitTermination(5, TimeUnit.SECONDS)) {
-                scheduler.shutdownNow();
-            }
-        } catch (InterruptedException e) {
-            scheduler.shutdownNow();
-        }
-        LOGGER.info("Power service shutdown");
     }
 
     /**
@@ -91,9 +59,9 @@ public class PowerService {
     }
 
     /**
-     * Updates power for all tracked players (called by scheduler).
+     * Updates power for all tracked players (called by scheduler or PowerTask).
      */
-    private void updateAllPower() {
+    public void updateAllPower() {
         long now = System.currentTimeMillis();
         List<UUID> toUpdate = new ArrayList<>(playerPowerCache.keySet());
 
@@ -107,6 +75,14 @@ public class PowerService {
     }
 
     /**
+     * Alias for updateAllPower() - updates power for online players (and offline decay).
+     * This method is part of the PowerService API as specified.
+     */
+    public void updateOnlinePower() {
+        updateAllPower();
+    }
+
+    /**
      * Updates a single player's power based on online status and time elapsed.
      */
     private void updatePlayerPower(UUID playerId, long now) throws SQLException {
@@ -117,19 +93,35 @@ public class PowerService {
             return;
         }
 
-        double currentPower = playerPowerCache.getOrDefault(playerId, DEFAULT_MAX_POWER);
-        double maxPower = maxPowerCache.getOrDefault(playerId, DEFAULT_MAX_POWER);
+        double currentPower = playerPowerCache.getOrDefault(playerId, config.getMaxPower());
+        double maxPower = maxPowerCache.getOrDefault(playerId, config.getMaxPower());
         long elapsedMs = now - lastUpdate;
         double elapsedMinutes = elapsedMs / (1000.0 * 60.0);
+        double gainRate = config.getGainRate();
 
         if (onlinePlayers.contains(playerId)) {
-            // Online: regenerate power
-            double regen = POWER_REGEN_RATE * elapsedMinutes;
+            // Online: regenerate power based on gain rate
+            double regen = gainRate * elapsedMinutes;
             currentPower = Math.min(maxPower, currentPower + regen);
         } else {
-            // Offline: decay power (max 1 hour per day)
-            double decay = OFFLINE_DECAY_RATE * elapsedMinutes;
-            currentPower = Math.max(0, currentPower - decay);
+            // Offline: handle according to configured mode
+            switch (config.getOfflineMode()) {
+                case FREEZE -> {
+                    // No change
+                }
+                case DECAY -> {
+                    // Decay power at a rate proportional to gainRate, but per hour
+                    // Using a decay rate factor; config could have decay-rate separate but we'll use a fraction
+                    double decayRate = gainRate * 0.5; // 0.5 factor as default (50% of gain rate per hour)
+                    double decay = decayRate * elapsedMinutes;
+                    currentPower = Math.max(0, currentPower - decay);
+                }
+                case KEEP -> {
+                    // Continue regenerating even when offline (unlimited)
+                    double regen = gainRate * elapsedMinutes;
+                    currentPower = Math.min(maxPower, currentPower + regen);
+                }
+            }
         }
 
         playerPowerCache.put(playerId, currentPower);
@@ -147,13 +139,17 @@ public class PowerService {
             if (playerPowerMapper.exists(playerId)) {
                 double power = playerPowerMapper.getPower(playerId);
                 double max = playerPowerMapper.getMaxPower(playerId);
+                int deathCount = playerPowerMapper.getDeathCount(playerId);
                 playerPowerCache.put(playerId, power);
                 maxPowerCache.put(playerId, max);
+                deathCountCache.put(playerId, deathCount);
             } else {
-                // New player, start with max power
-                playerPowerCache.put(playerId, DEFAULT_MAX_POWER);
-                maxPowerCache.put(playerId, DEFAULT_MAX_POWER);
-                playerPowerMapper.insert(playerId, DEFAULT_MAX_POWER, DEFAULT_MAX_POWER,
+                // New player, start with max power from config
+                double defaultMax = config.getMaxPower();
+                playerPowerCache.put(playerId, defaultMax);
+                maxPowerCache.put(playerId, defaultMax);
+                deathCountCache.put(playerId, 0);
+                playerPowerMapper.insert(playerId, defaultMax, defaultMax,
                                        System.currentTimeMillis());
             }
             lastPowerUpdate.put(playerId, System.currentTimeMillis());
@@ -167,7 +163,8 @@ public class PowerService {
      * Saves a player's power to the database.
      */
     private void savePlayerPowerToDb(UUID playerId, double power, double maxPower, long lastUpdate) throws SQLException {
-        playerPowerMapper.update(playerId, power, maxPower, lastUpdate, 0);
+        int deathCount = deathCountCache.getOrDefault(playerId, 0);
+        playerPowerMapper.update(playerId, power, maxPower, lastUpdate, deathCount);
     }
 
     /**
@@ -194,10 +191,10 @@ public class PowerService {
                 loadPlayerPowerFromDb(playerId);
             } catch (SQLException e) {
                 LOGGER.log(Level.WARNING, "Failed to load max power for " + playerId, e);
-                return DEFAULT_MAX_POWER;
+                return config.getMaxPower();
             }
         }
-        return maxPowerCache.getOrDefault(playerId, DEFAULT_MAX_POWER);
+        return maxPowerCache.getOrDefault(playerId, config.getMaxPower());
     }
 
     /**
@@ -260,7 +257,9 @@ public class PowerService {
             totalPower += getPower(memberId);
         }
         faction.setPower(totalPower);
-        faction.setMaxClaims((int) (totalPower / 1000.0) * 100); // Example: 100 claims per 1000 power
+        // Calculate max claims based on config: each claim requires 1/minClaimsPerPower power
+        int maxClaims = (int) Math.floor(totalPower * config.getMinClaimsPerPower());
+        faction.setMaxClaims(maxClaims);
 
         persistFactionPower(faction);
         return totalPower;
@@ -280,8 +279,23 @@ public class PowerService {
      */
     public void applyDeathPenalty(UUID playerId, double penaltyPercent) {
         double maxPower = getMaxPower(playerId);
-        double penalty = maxPower * (penaltyPercent / 100.0);
+        double penalty = config.getDeathPenaltyAbsolute(maxPower);
         removePower(playerId, penalty);
+    }
+
+    /**
+     * Increments the death count for a player.
+     */
+    public void incrementDeathCount(UUID playerId) {
+        deathCountCache.merge(playerId, 1, Integer::sum);
+        // Note: Persistence of deathCount to DB can be added when schema is extended
+    }
+
+    /**
+     * Gets the death count for a player.
+     */
+    public int getDeathCount(UUID playerId) {
+        return deathCountCache.getOrDefault(playerId, 0);
     }
 
     /**
