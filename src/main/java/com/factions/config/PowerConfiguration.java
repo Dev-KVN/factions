@@ -10,6 +10,7 @@ public class PowerConfiguration {
     private final double gainRate;
     private final double deathPenaltyPercent;
     private final OfflineMode offlineMode;
+    private final double offlineDecayRate; // per hour while offline
     private final double minutesPerPoint;
     private final double incrementPerDay;
     private final double minClaimsPerPower;
@@ -24,12 +25,14 @@ public class PowerConfiguration {
      * Constructs configuration from config values.
      */
     public PowerConfiguration(double maxPower, double gainRate, double deathPenaltyPercent,
-                              OfflineMode offlineMode, double minutesPerPoint, double incrementPerDay,
+                              OfflineMode offlineMode, double offlineDecayRate,
+                              double minutesPerPoint, double incrementPerDay,
                               double minClaimsPerPower) {
         this.maxPower = maxPower;
         this.gainRate = gainRate;
         this.deathPenaltyPercent = deathPenaltyPercent;
         this.offlineMode = offlineMode;
+        this.offlineDecayRate = offlineDecayRate;
         this.minutesPerPoint = minutesPerPoint;
         this.incrementPerDay = incrementPerDay;
         this.minClaimsPerPower = minClaimsPerPower;
@@ -49,6 +52,10 @@ public class PowerConfiguration {
 
     public OfflineMode getOfflineMode() {
         return offlineMode;
+    }
+
+    public double getOfflineDecayRate() {
+        return offlineDecayRate;
     }
 
     public double getMinutesPerPoint() {

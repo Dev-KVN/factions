@@ -30,6 +30,7 @@ public class FactionsPlugin extends JavaPlugin {
     private PowerService powerService;
     private ClaimService claimService;
     private RelationService relationService;
+    private PowerTask powerTask;
 
     @Override
     public void onEnable() {
@@ -66,6 +67,10 @@ public class FactionsPlugin extends JavaPlugin {
     @Override
     public void onDisable() {
         getLogger().info("Disabling FactionsPlugin...");
+
+        if (powerTask != null) {
+            powerTask.stop();
+        }
 
         if (powerService != null) {
             powerService.shutdown();
@@ -119,7 +124,7 @@ public class FactionsPlugin extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new PowerLossListener(this), this);
 
         // Start periodic power update task (every 5 minutes)
-        PowerTask powerTask = new PowerTask(powerService, this, 5);
+        powerTask = new PowerTask(powerService, this, 5);
         powerTask.start();
     }
 
@@ -130,6 +135,7 @@ public class FactionsPlugin extends JavaPlugin {
         double maxPower = getConfig().getDouble("power.max-power", 1000.0);
         double gainRate = getConfig().getDouble("power.regen-rate", 1.0);
         double deathPenaltyPercent = getConfig().getDouble("power.death-penalty-percent", 10.0);
+        double offlineDecayRate = getConfig().getDouble("power.offline-decay-rate", 0.5);
         double minClaimsPerPower = getConfig().getDouble("power.min-claims-per-power", 0.01);
 
         // Parse offline mode
@@ -152,6 +158,7 @@ public class FactionsPlugin extends JavaPlugin {
             gainRate,
             deathPenaltyPercent,
             offlineMode,
+            offlineDecayRate,
             minutesPerPoint,
             incrementPerDay,
             minClaimsPerPower

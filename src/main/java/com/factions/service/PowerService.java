@@ -6,12 +6,8 @@ import com.factions.persistence.DatabaseManager;
 import com.factions.persistence.PlayerPowerMapper;
 
 import java.sql.SQLException;
-import java.time.LocalDateTime;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -110,10 +106,9 @@ public class PowerService {
                     // No change
                 }
                 case DECAY -> {
-                    // Decay power at a rate proportional to gainRate, but per hour
-                    // Using a decay rate factor; config could have decay-rate separate but we'll use a fraction
-                    double decayRate = gainRate * 0.5; // 0.5 factor as default (50% of gain rate per hour)
-                    double decay = decayRate * elapsedMinutes;
+                    // Decay power based on configured offline decay rate (per hour)
+                    double elapsedHours = elapsedMs / (1000.0 * 60.0 * 60.0);
+                    double decay = config.getOfflineDecayRate() * elapsedHours;
                     currentPower = Math.max(0, currentPower - decay);
                 }
                 case KEEP -> {

@@ -3,6 +3,7 @@ package com.factions.task;
 import com.factions.service.PowerService;
 import org.bukkit.Bukkit;
 import org.bukkit.plugin.Plugin;
+import org.bukkit.scheduler.BukkitTask;
 
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -18,6 +19,7 @@ public class PowerTask implements Runnable {
     private final PowerService powerService;
     private final Plugin plugin;
     private final long intervalTicks; // Bukkit ticks (20 ticks = 1 second)
+    private BukkitTask bukkitTask;
 
     /**
      * @param powerService the power service to update
@@ -34,8 +36,18 @@ public class PowerTask implements Runnable {
      * Starts the repeating task.
      */
     public void start() {
-        Bukkit.getScheduler().runTaskTimer(plugin, this, intervalTicks, intervalTicks);
+        bukkitTask = Bukkit.getScheduler().runTaskTimer(plugin, this, intervalTicks, intervalTicks);
         LOGGER.info("PowerTask scheduled to run every " + intervalTicks / 20 / 60 + " minutes");
+    }
+
+    /**
+     * Stops the repeating task.
+     */
+    public void stop() {
+        if (bukkitTask != null && !bukkitTask.isCancelled()) {
+            bukkitTask.cancel();
+            LOGGER.info("PowerTask stopped");
+        }
     }
 
     @Override
