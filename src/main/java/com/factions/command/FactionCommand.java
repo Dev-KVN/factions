@@ -3,7 +3,9 @@ package com.factions.command;
 import com.factions.FactionsPlugin;
 import com.factions.api.*;
 import com.factions.service.*;
+import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
+import org.bukkit.OfflinePlayer;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
@@ -528,16 +530,80 @@ public class FactionCommand implements CommandExecutor, TabExecutor {
         // TODO: implement role demotion logic
     }
 
-    private void handleWho(CommandSender sender, String[] args) {
-        if (args.length < 2) {
-            sender.sendMessage(PREFIX + "§e/f who <player/faction>");
+    private void handleWho(CommandSender sender, String[] args) throws SQLException {
+        Player player = sender instanceof Player ? (Player) sender : null;
+        Faction faction = null;
+        String targetName = null;
+
+        if (args.length == 1) {
+            // No target: show own faction if player
+            if (player == null) {
+                sender.sendMessage(PREFIX + "§cConsole must specify a player or faction.");
+                return;
+            }
+            faction = getPlayerFaction(player);
+            if (faction == null) {
+                sender.sendMessage(PREFIX + "§cYou are not in a faction.");
+                return;
+            }
+            targetName = faction.getTag();
+        } else {
+            targetName = args[1];
+            // Try as faction tag first
+            faction = plugin.getFactionService().getFactionByTag(targetName.toUpperCase());
+            if (faction == null) {
+                // Try as player name
+                if (player != null && targetName.equalsIgnoreCase(player.getName())) {
+                    faction = getPlayerFaction(player);
+                } else {
+                    OfflinePlayer offlinePlayer = Bukkit.getOfflinePlayer(targetName);
+                    if (offlinePlayer != null && offlinePlayer.hasPlayedBefore()) {
+                        UUID playerId = offlinePlayer.getUniqueId();
+                        for (Faction f : plugin.getFactionService().getAllFactions()) {
+                            if (f.hasMember(playerId)) {
+                                faction = f;
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        if (faction == null) {
+            sender.sendMessage(PREFIX + "§cFaction or player not found: §f" + targetName);
             return;
         }
 
-        String target = args[1];
-        // Try to find faction by tag or player name
-        sender.sendMessage(PREFIX + "§7Faction info for §f" + target);
-        // Would display faction details
+        // Display detailed faction information
+        sender.sendMessage(PREFIX + "§7--- §b" + faction.getTag() + "§7 ---");
+        sender.sendMessage("§fName: §7" + faction.getName());
+        UUID leaderId = faction.getLeaderId();
+        String leaderName = Bukkit.getOfflinePlayer(leaderId).getName();
+        sender.sendMessage("§fLeader: §7" + (leaderName != null ? leaderName : leaderId.toString()));
+        sender.sendMessage("§fDescription: §7" + (faction.getDescription().isEmpty() ? "None" : faction.getDescription()));
+        sender.sendMessage("§fMOTD: §7" + (faction.getMotd().isEmpty() ? "None" : faction.getMotd()));
+        sender.sendMessage("§fMembers (" + faction.getMembers().size() + "):");
+        for (UUID memberId : faction.getMembers()) {
+            FactionMember.Role role = plugin.getFactionService().getMemberRole(faction, memberId);
+            String roleStr = role != null ? role.name() : "UNKNOWN";
+            OfflinePlayer offline = Bukkit.getOfflinePlayer(memberId);
+            String name = offline.getName();
+            if (name == null) name = memberId.toString();
+            sender.sendMessage("§7 - §f" + name + " §e[" + roleStr + "]");
+        }
+        double power = plugin.getPowerService().recalculateFactionPower(faction);
+        sender.sendMessage(String.format("§fPower: §7%.1f", power));
+        sender.sendMessage(String.format("§fClaims: §7%d/%d", faction.getClaimCount(), faction.getMaxClaims()));
+        if (faction.hasHome()) {
+            sender.sendMessage(String.format("§fHome: §7%s %d %d %d",
+                    faction.getHomeWorld(), faction.getHomeX(), faction.getHomeY(), faction.getHomeZ()));
+        } else {
+            sender.sendMessage("§fHome: §7Not set");
+        }
+        if (faction.getBankBalance() > 0) {
+            sender.sendMessage(String.format("§fBank: §a$%.2f", faction.getBankBalance()));
+        }
     }
 
     private void handleList(CommandSender sender, String[] args) throws SQLException {
@@ -551,10 +617,12 @@ public class FactionCommand implements CommandExecutor, TabExecutor {
                 .collect(Collectors.toList());
 
         sender.sendMessage(PREFIX + "§7--- §bFactions List§7 (" + factions.size() + ") ---");
-        for (int i = 0; i < Math.min(10, factions.size()); i++) {
+        for (int i = 0; i < factions.size(); i++) {
             Faction f = factions.get(i);
-            sender.sendMessage(String.format("§f%d. %s §7- §e%d members §7- §a%.1f power",
-                    i + 1, f.getTag(), f.getMembers().size(), plugin.getPowerService().recalculateFactionPower(f)));
+            sender.sendMessage(String.format("§f%d. %s §7- §e%d members §7- §a%.1f power §7- §c%d claims",
+                    i + 1, f.getTag(), f.getMembers().size(),
+                    plugin.getPowerService().recalculateFactionPower(f),
+                    f.getClaimCount()));
         }
     }
 
