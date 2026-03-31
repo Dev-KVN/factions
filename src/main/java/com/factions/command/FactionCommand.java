@@ -169,7 +169,7 @@ public class FactionCommand implements CommandExecutor, TabExecutor {
         sender.sendMessage("§e/f invite <player> §7- Invite a player");
         sender.sendMessage("§e/f accept §7- Accept an invitation");
         sender.sendMessage("§e/f deny §7- Deny an invitation");
-        sender.sendMessage("§e/f leave §7- Leave your faction");
+        sender.sendMessage("§e/f leave [confirm] §7- Leave your faction");
         sender.sendMessage("§e/f kick <player> §7- Kick a member");
         sender.sendMessage("§e/f ban <player> §7- Ban a player");
         sender.sendMessage("§e/f unban <player> §7- Unban a player");
@@ -366,9 +366,41 @@ public class FactionCommand implements CommandExecutor, TabExecutor {
             return;
         }
 
-        // In a real implementation, we'd look up the target player by name
-        sender.sendMessage(PREFIX + "§aInvite sent to §f" + args[1]);
-        // TODO: actual player lookup and invite
+        // Resolve target player by name (must be online)
+        String targetName = args[1];
+        Player target = plugin.getServer().getPlayerExact(targetName);
+        if (target == null) {
+            sender.sendMessage(PREFIX + "§cPlayer §f" + targetName + " §cis not online.");
+            return;
+        }
+
+        UUID targetId = target.getUniqueId();
+
+        // Validate invite
+        if (targetId.equals(player.getUniqueId())) {
+            sender.sendMessage(PREFIX + "§cYou cannot invite yourself.");
+            return;
+        }
+
+        if (faction.hasMember(targetId)) {
+            sender.sendMessage(PREFIX + "§cThat player is already in your faction.");
+            return;
+        }
+
+        if (faction.getInvites().contains(targetId)) {
+            sender.sendMessage(PREFIX + "§cThat player has already been invited.");
+            return;
+        }
+
+        // Send invite
+        boolean success = plugin.getFactionService().invitePlayer(faction, targetId);
+        if (success) {
+            sender.sendMessage(PREFIX + "§aInvite sent to §f" + target.getName());
+            target.sendMessage(PREFIX + "§aYou have been invited to join §f" + faction.getTag() + "§a!");
+            target.sendMessage(PREFIX + "§eType §b/f accept §eto join or §b/f deny §eto decline.");
+        } else {
+            sender.sendMessage(PREFIX + "§cFailed to send invite.");
+        }
     }
 
     private void handleAccept(CommandSender sender, String[] args) throws SQLException {
@@ -399,22 +431,33 @@ public class FactionCommand implements CommandExecutor, TabExecutor {
 
     private void handleJoin(CommandSender sender, String[] args) throws SQLException {
         if (!(sender instanceof Player)) return;
-        if (args.length < 2) {
-            sender.sendMessage(PREFIX + "§e/f join <faction>");
-            return;
-        }
-        Faction target = plugin.getFactionService().getFactionByTag(args[1].toUpperCase());
-        if (target == null) {
-            sender.sendMessage(PREFIX + "§cFaction not found.");
+        Player player = (Player) sender;
+
+        // Check if already in a faction
+        if (getPlayerFaction(player) != null) {
+            player.sendMessage(PREFIX + "§cYou are already in a faction. Leave first with §e/f leave§c.");
             return;
         }
 
-        if (target.getInvites().contains(((Player) sender).getUniqueId())) {
-            plugin.getFactionService().acceptInvite(target, ((Player) sender).getUniqueId());
-            sender.sendMessage(PREFIX + "§aYou joined §f" + target.getTag());
-        } else {
-            sender.sendMessage(PREFIX + "§cYou don't have an invitation.");
+        if (args.length < 2) {
+            player.sendMessage(PREFIX + "§e/f join <faction>");
+            return;
         }
+
+        Faction target = plugin.getFactionService().getFactionByTag(args[1].toUpperCase());
+        if (target == null) {
+            player.sendMessage(PREFIX + "§cFaction not found.");
+            return;
+        }
+
+        // Verify the player has an invite from this specific faction
+        if (!target.getInvites().contains(player.getUniqueId())) {
+            player.sendMessage(PREFIX + "§cYou don't have an invitation from §f" + target.getTag() + "§c.");
+            return;
+        }
+
+        plugin.getFactionService().acceptInvite(target, player.getUniqueId());
+        player.sendMessage(PREFIX + "§aYou joined §f" + target.getTag() + "§a!");
     }
 
     private void handleLeave(CommandSender sender, String[] args) throws SQLException {
@@ -431,8 +474,14 @@ public class FactionCommand implements CommandExecutor, TabExecutor {
             return;
         }
 
+        // Require confirmation
+        if (args.length == 0 || !"confirm".equalsIgnoreCase(args[0])) {
+            player.sendMessage(PREFIX + "§eTo leave your faction, type §b/f leave confirm §7(irreversible)");
+            return;
+        }
+
         plugin.getFactionService().removeMember(faction, player.getUniqueId());
-        sender.sendMessage(PREFIX + "§aYou left §f" + faction.getTag());
+        player.sendMessage(PREFIX + "§aYou left §f" + faction.getTag() + "§a.");
     }
 
     private void handleKick(CommandSender sender, String[] args) throws SQLException {
