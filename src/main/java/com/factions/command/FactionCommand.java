@@ -197,6 +197,16 @@ public class FactionCommand implements CommandExecutor, TabExecutor {
         return null;
     }
 
+    private String formatRelation(RelationState state) {
+        switch (state) {
+            case ALLY: return "§a[ALLY]";
+            case ENEMY: return "§c[ENEMY]";
+            case NEUTRAL: return "§e[NEUTRAL]";
+            case TRUCE: return "§b[TRUCE]";
+            default: return "§f[UNKNOWN]";
+        }
+    }
+
     private FactionMember.Role getPlayerRole(Faction faction, Player player) throws SQLException {
         UUID playerId = player.getUniqueId();
         if (faction.getLeaderId().equals(playerId)) {
@@ -666,10 +676,20 @@ public class FactionCommand implements CommandExecutor, TabExecutor {
                 .collect(Collectors.toList());
 
         sender.sendMessage(PREFIX + "§7--- §bFactions List§7 (" + factions.size() + ") ---");
+        Player player = sender instanceof Player ? (Player) sender : null;
+        Faction playerFaction = null;
+        if (player != null) {
+            playerFaction = getPlayerFaction(player);
+        }
         for (int i = 0; i < factions.size(); i++) {
             Faction f = factions.get(i);
-            sender.sendMessage(String.format("§f%d. %s §7- §e%d members §7- §a%.1f power §7- §c%d claims",
-                    i + 1, f.getTag(), f.getMembers().size(),
+            String relationStr = "";
+            if (playerFaction != null && !playerFaction.getId().equals(f.getId())) {
+                RelationState rel = plugin.getRelationService().getRelation(playerFaction, f);
+                relationStr = " " + formatRelation(rel);
+            }
+            sender.sendMessage(String.format("§f%d. %s%s §7- §e%d members §7- §a%.1f power §7- §c%d claims",
+                    i + 1, f.getTag(), relationStr, f.getMembers().size(),
                     plugin.getPowerService().recalculateFactionPower(f),
                     f.getClaimCount()));
         }
@@ -849,9 +869,21 @@ public class FactionCommand implements CommandExecutor, TabExecutor {
             return;
         }
 
+        if (target.getId().equals(faction.getId())) {
+            sender.sendMessage(PREFIX + "§cYou cannot ally with your own faction.");
+            return;
+        }
+
+        // Check if already allied
+        RelationState current = plugin.getRelationService().getRelation(faction, target);
+        if (current == RelationState.ALLY) {
+            sender.sendMessage(PREFIX + "§eYou are already allied with §f" + target.getTag() + "§e.");
+            return;
+        }
+
         boolean success = plugin.getRelationService().setRelation(faction, target, RelationState.ALLY, player.getUniqueId());
         if (success) {
-            sender.sendMessage(PREFIX + "§aAlly request sent to §f" + target.getTag());
+            sender.sendMessage(PREFIX + "§aYou are now allied with §f" + target.getTag() + "§a!");
         } else {
             sender.sendMessage(PREFIX + "§cFailed to set relation.");
         }
@@ -882,9 +914,20 @@ public class FactionCommand implements CommandExecutor, TabExecutor {
             return;
         }
 
+        if (target.getId().equals(faction.getId())) {
+            sender.sendMessage(PREFIX + "§cYou cannot declare war on your own faction.");
+            return;
+        }
+
+        RelationState current = plugin.getRelationService().getRelation(faction, target);
+        if (current == RelationState.ENEMY) {
+            sender.sendMessage(PREFIX + "§eYou are already at war with §f" + target.getTag() + "§e.");
+            return;
+        }
+
         boolean success = plugin.getRelationService().setRelation(faction, target, RelationState.ENEMY, player.getUniqueId());
         if (success) {
-            sender.sendMessage(PREFIX + "§aSet §f" + target.getTag() + " §aas enemy.");
+            sender.sendMessage(PREFIX + "§aYou are now at war with §f" + target.getTag() + "§a!");
         } else {
             sender.sendMessage(PREFIX + "§cFailed to set relation.");
         }
