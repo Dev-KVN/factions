@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="UTF-8" ?>
-<testsuite tests="8" failures="0" name="com.factions.FactionsIntegrationTest" time="1.059" errors="0" skipped="0">
+<testsuite tests="8" failures="0" name="com.factions.FactionsIntegrationTest" time="3.353" errors="0" skipped="0">
   <properties>
     <property name="java.runtime.name" value="Java(TM) SE Runtime Environment"/>
     <property name="java.vm.version" value="21.0.10+8-LTS-217"/>
     <property name="sun.boot.library.path" value="/usr/lib/jvm/jdk-21.0.10-oracle-x64/lib"/>
-    <property name="maven.multiModuleProjectDirectory" value="/home/KVN/gt/factions/polecats/scavenger/factions"/>
+    <property name="maven.multiModuleProjectDirectory" value="/home/KVN/gt/factions/polecats/shiny/factions"/>
     <property name="java.vm.vendor" value="Oracle Corporation"/>
     <property name="java.vendor.url" value="https://java.oracle.com/"/>
     <property name="guice.disable.misplaced.annotation.check" value="true"/>
@@ -13,7 +13,7 @@
     <property name="user.country" value="US"/>
     <property name="sun.java.launcher" value="SUN_STANDARD"/>
     <property name="java.vm.specification.name" value="Java Virtual Machine Specification"/>
-    <property name="user.dir" value="/home/KVN/gt/factions/polecats/scavenger/factions"/>
+    <property name="user.dir" value="/home/KVN/gt/factions/polecats/shiny/factions"/>
     <property name="java.vm.compressedOopsMode" value="Zero based"/>
     <property name="java.runtime.version" value="21.0.10+8-LTS-217"/>
     <property name="os.arch" value="amd64"/>
@@ -43,7 +43,7 @@
     <property name="org.slf4j.simpleLogger.defaultLogLevel" value="error"/>
     <property name="java.vm.specification.version" value="21"/>
     <property name="sun.arch.data.model" value="64"/>
-    <property name="sun.java.command" value="org.codehaus.plexus.classworlds.launcher.Launcher -q test"/>
+    <property name="sun.java.command" value="org.codehaus.plexus.classworlds.launcher.Launcher clean test -q"/>
     <property name="java.home" value="/usr/lib/jvm/jdk-21.0.10-oracle-x64"/>
     <property name="user.language" value="en"/>
     <property name="java.specification.vendor" value="Oracle Corporation"/>
@@ -58,12 +58,12 @@
     <property name="sun.io.unicode.encoding" value="UnicodeLittle"/>
     <property name="sun.cpu.endian" value="little"/>
   </properties>
-  <testcase classname="com.factions.FactionsIntegrationTest" name="com.factions.FactionsIntegrationTest.testPowerCalculation" time="0.477"/>
-  <testcase classname="com.factions.FactionsIntegrationTest" name="com.factions.FactionsIntegrationTest.testClaimChunk" time="0.094"/>
-  <testcase classname="com.factions.FactionsIntegrationTest" name="com.factions.FactionsIntegrationTest.testClaimLimit" time="0.085"/>
-  <testcase classname="com.factions.FactionsIntegrationTest" name="com.factions.FactionsIntegrationTest.testRelationManagement" time="0.105"/>
-  <testcase classname="com.factions.FactionsIntegrationTest" name="com.factions.FactionsIntegrationTest.testMemberManagement" time="0.109"/>
-  <testcase classname="com.factions.FactionsIntegrationTest" name="com.factions.FactionsIntegrationTest.testFactionPersistence" time="0.069"/>
-  <testcase classname="com.factions.FactionsIntegrationTest" name="com.factions.FactionsIntegrationTest.testPowerRegeneration" time="0.06"/>
-  <testcase classname="com.factions.FactionsIntegrationTest" name="com.factions.FactionsIntegrationTest.testCreateFaction" time="0.06"/>
+  <testcase classname="com.factions.FactionsIntegrationTest" name="com.factions.FactionsIntegrationTest.testCreateFaction" time="0.857"/>
+  <testcase classname="com.factions.FactionsIntegrationTest" name="com.factions.FactionsIntegrationTest.testPowerCalculation" time="0.379"/>
+  <testcase classname="com.factions.FactionsIntegrationTest" name="com.factions.FactionsIntegrationTest.testClaimChunk" time="0.377"/>
+  <testcase classname="com.factions.FactionsIntegrationTest" name="com.factions.FactionsIntegrationTest.testClaimLimit" time="0.358"/>
+  <testcase classname="com.factions.FactionsIntegrationTest" name="com.factions.FactionsIntegrationTest.testRelationManagement" time="0.452"/>
+  <testcase classname="com.factions.FactionsIntegrationTest" name="com.factions.FactionsIntegrationTest.testMemberManagement" time="0.43"/>
+  <testcase classname="com.factions.FactionsIntegrationTest" name="com.factions.FactionsIntegrationTest.testFactionPersistence" time="0.265"/>
+  <testcase classname="com.factions.FactionsIntegrationTest" name="com.factions.FactionsIntegrationTest.testPowerRegeneration" time="0.235"/>
 </testsuite>
