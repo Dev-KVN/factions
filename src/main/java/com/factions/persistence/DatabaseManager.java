@@ -234,6 +234,18 @@ public class DatabaseManager {
                 + "  last_death BIGINT DEFAULT 0,\n"
                 + "  death_count INT DEFAULT 0,\n"
                 + "  INDEX idx_power (power DESC)\n"
+                + ");\n"
+                + "\n"
+                + "CREATE TABLE IF NOT EXISTS bounties (\n"
+                + "  id VARCHAR(36) PRIMARY KEY,\n"
+                + "  target_faction_id VARCHAR(36) NOT NULL,\n"
+                + "  placer_faction_id VARCHAR(36) NOT NULL,\n"
+                + "  amount DOUBLE NOT NULL,\n"
+                + "  placed_at BIGINT NOT NULL,\n"
+                + "  FOREIGN KEY (target_faction_id) REFERENCES factions(id) ON DELETE CASCADE,\n"
+                + "  FOREIGN KEY (placer_faction_id) REFERENCES factions(id) ON DELETE CASCADE,\n"
+                + "  INDEX idx_target (target_faction_id),\n"
+                + "  INDEX idx_placer (placer_faction_id)\n"
                 + ");";
     }
 
@@ -318,6 +330,16 @@ public class DatabaseManager {
                 + "  last_update INTEGER NOT NULL,\n"
                 + "  last_death INTEGER DEFAULT 0,\n"
                 + "  death_count INTEGER DEFAULT 0\n"
+                + ");\n"
+                + "\n"
+                + "CREATE TABLE IF NOT EXISTS bounties (\n"
+                + "  id TEXT PRIMARY KEY,\n"
+                + "  target_faction_id TEXT NOT NULL,\n"
+                + "  placer_faction_id TEXT NOT NULL,\n"
+                + "  amount REAL NOT NULL,\n"
+                + "  placed_at INTEGER NOT NULL,\n"
+                + "  FOREIGN KEY (target_faction_id) REFERENCES factions(id) ON DELETE CASCADE,\n"
+                + "  FOREIGN KEY (placer_faction_id) REFERENCES factions(id) ON DELETE CASCADE\n"
                 + ");";
     }
 }

@@ -199,6 +199,18 @@ public class FactionService {
     }
 
     /**
+     * Gets the faction that a player belongs to, if any.
+     */
+    public Faction getFactionByPlayer(UUID playerId) {
+        for (Faction faction : getAllFactions()) {
+            if (faction.hasMember(playerId)) {
+                return faction;
+            }
+        }
+        return null;
+    }
+
+    /**
      * Adds a member to a faction.
      */
     public boolean addMember(Faction faction, UUID playerId) {

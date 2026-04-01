@@ -2,8 +2,10 @@ package com.factions;
 
 import com.factions.api.FactionsAPI;
 import com.factions.config.PowerConfiguration;
+import com.factions.listeners.BountyListener;
 import com.factions.listeners.PowerLossListener;
 import com.factions.persistence.DatabaseManager;
+import com.factions.service.BountyService;
 import com.factions.service.ClaimService;
 import com.factions.service.FactionService;
 import com.factions.service.PowerService;
@@ -29,6 +31,7 @@ public class FactionsPlugin extends JavaPlugin {
     private PowerService powerService;
     private ClaimService claimService;
     private RelationService relationService;
+    private BountyService bountyService;
     private PowerTask powerTask;
 
     @Override
@@ -56,6 +59,7 @@ public class FactionsPlugin extends JavaPlugin {
         // Register events
         getServer().getPluginManager().registerEvents(new com.factions.listeners.PlayerListener(this), this);
         getServer().getPluginManager().registerEvents(new com.factions.listeners.ChunkListener(this), this);
+        getServer().getPluginManager().registerEvents(new BountyListener(this), this);
 
         // Initialize API
         FactionsAPI.setPlugin(this);
@@ -118,6 +122,7 @@ public class FactionsPlugin extends JavaPlugin {
         factionService = new FactionService(databaseManager, powerService);
         relationService = new RelationService(databaseManager);
         claimService = new ClaimService(databaseManager, powerService, factionService);
+        bountyService = new BountyService(databaseManager, factionService);
 
         // Register power loss listener
         getServer().getPluginManager().registerEvents(new PowerLossListener(this), this);
@@ -183,5 +188,9 @@ public class FactionsPlugin extends JavaPlugin {
 
     public RelationService getRelationService() {
         return relationService;
+    }
+
+    public BountyService getBountyService() {
+        return bountyService;
     }
 }

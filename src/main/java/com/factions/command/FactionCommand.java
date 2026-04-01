@@ -2,6 +2,7 @@ package com.factions.command;
 
 import com.factions.FactionsPlugin;
 import com.factions.api.*;
+import com.factions.event.FactionDisbandEvent;
 import com.factions.service.*;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
@@ -142,6 +143,9 @@ public class FactionCommand implements CommandExecutor, TabExecutor {
                 case "truce":
                     handleTruce(sender, args);
                     break;
+                case "bounty":
+                    handleBounty(sender, args);
+                    break;
                 default:
                     sender.sendMessage(PREFIX + "§cUnknown subcommand: " + subCommand);
                     sendHelp(sender);
@@ -260,6 +264,9 @@ public class FactionCommand implements CommandExecutor, TabExecutor {
             sender.sendMessage(PREFIX + "§cOnly the leader can disband the faction.");
             return;
         }
+
+        // Fire disband event for bounty refunds and cleanup
+        plugin.getServer().getPluginManager().callEvent(new FactionDisbandEvent(player, faction));
 
         plugin.getFactionService().deleteFaction(faction.getId());
         sender.sendMessage(PREFIX + "§aFaction disbanded.");
@@ -970,6 +977,57 @@ public class FactionCommand implements CommandExecutor, TabExecutor {
         sender.sendMessage(PREFIX + "§eTruce feature coming soon.");
     }
 
+    private void handleBounty(CommandSender sender, String[] args) throws SQLException {
+        if (!(sender instanceof Player)) {
+            sender.sendMessage(ONLY_PLAYERS);
+            return;
+        }
+
+        Player player = (Player) sender;
+        Faction placerFaction = getPlayerFaction(player);
+        if (placerFaction == null) {
+            sender.sendMessage(PREFIX + "§cYou are not in a faction.");
+            return;
+        }
+
+        if (args.length < 3) {
+            sender.sendMessage(PREFIX + "§e/f bounty <faction> <amount>");
+            return;
+        }
+
+        String targetTag = args[1].toUpperCase();
+        Faction targetFaction = plugin.getFactionService().getFactionByTag(targetTag);
+        if (targetFaction == null) {
+            sender.sendMessage(PREFIX + "§cFaction not found.");
+            return;
+        }
+
+        if (targetFaction.getId().equals(placerFaction.getId())) {
+            sender.sendMessage(PREFIX + "§cYou cannot place a bounty on your own faction.");
+            return;
+        }
+
+        double amount;
+        try {
+            amount = Double.parseDouble(args[2]);
+        } catch (NumberFormatException e) {
+            sender.sendMessage(PREFIX + "§cInvalid amount: must be a number.");
+            return;
+        }
+
+        if (amount <= 0) {
+            sender.sendMessage(PREFIX + "§cAmount must be positive.");
+            return;
+        }
+
+        boolean success = plugin.getBountyService().placeBounty(placerFaction, targetFaction, amount);
+        if (success) {
+            sender.sendMessage(PREFIX + "§aBounty placed! §e" + amount + " §7on §f" + targetFaction.getTag());
+        } else {
+            sender.sendMessage(PREFIX + "§cFailed to place bounty. Check funds and try again.");
+        }
+    }
+
     @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
         List<String> results = new ArrayList<>();
@@ -980,7 +1038,7 @@ public class FactionCommand implements CommandExecutor, TabExecutor {
                             "invite", "accept", "deny", "join", "leave", "kick", "ban", "unban",
                             "promote", "demote", "who", "list", "show", "map", "top",
                             "claim", "unclaim", "unclaimall", "sethome", "home",
-                            "ally", "enemy", "neutral", "truce"),
+                            "ally", "enemy", "neutral", "truce", "bounty"),
                     results);
         }
 
