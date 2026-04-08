@@ -515,10 +515,53 @@ public class FactionCommand implements CommandExecutor, TabExecutor {
             return;
         }
 
-        // Would need to resolve target player from name
-        // For now, implementation placeholder
-        sender.sendMessage(PREFIX + "§aKicked player.");
-        // TODO: implement player name resolve and kick
+        String targetName = args[1];
+        OfflinePlayer offlineTarget = Bukkit.getOfflinePlayer(targetName);
+        if (!offlineTarget.hasPlayedBefore()) {
+            sender.sendMessage(PREFIX + "§cPlayer §f" + targetName + " §cnot found.");
+            return;
+        }
+        UUID targetId = offlineTarget.getUniqueId();
+
+        // Cannot kick yourself or leader
+        if (targetId.equals(faction.getLeaderId())) {
+            sender.sendMessage(PREFIX + "§cYou cannot kick the faction leader.");
+            return;
+        }
+        if (targetId.equals(player.getUniqueId())) {
+            sender.sendMessage(PREFIX + "§cYou cannot kick yourself. Use §e/f leave§c.");
+            return;
+        }
+
+        // Check target is in this faction
+        if (!faction.hasMember(targetId)) {
+            sender.sendMessage(PREFIX + "§cPlayer is not in your faction.");
+            return;
+        }
+
+        // Permission check using role hierarchy
+        FactionMember.Role actorRole = getPlayerRole(faction, player);
+        FactionMember.Role targetRole = plugin.getFactionService().getMemberRole(faction, targetId);
+        if (actorRole == null || targetRole == null) {
+            sender.sendMessage(PREFIX + "§cError retrieving roles.");
+            return;
+        }
+        // Role hierarchy: LEADER(0) > OFFICER(1) > MEMBER(2) > RECRUIT(3)
+        // Actor can kick if their role ordinal is lower (higher rank) than target
+        if (actorRole.ordinal() >= targetRole.ordinal()) {
+            sender.sendMessage(PREFIX + "§cYour role is not high enough to kick this player.");
+            return;
+        }
+
+        // Execute kick
+        plugin.getFactionService().removeMember(faction, targetId);
+        sender.sendMessage(PREFIX + "§aKicked §f" + offlineTarget.getName() + "§a from the faction.");
+
+        // Notify target if online
+        Player targetOnline = Bukkit.getPlayer(targetId);
+        if (targetOnline != null && targetOnline.isOnline()) {
+            targetOnline.sendMessage(PREFIX + "§cYou have been kicked from §f" + faction.getTag());
+        }
     }
 
     private void handleBan(CommandSender sender, String[] args) throws SQLException {
@@ -535,9 +578,49 @@ public class FactionCommand implements CommandExecutor, TabExecutor {
             return;
         }
 
-        // Would need to resolve target player
-        sender.sendMessage(PREFIX + "§aPlayer banned.");
-        // TODO: implement
+        String targetName = args[1];
+        OfflinePlayer offlineTarget = Bukkit.getOfflinePlayer(targetName);
+        if (!offlineTarget.hasPlayedBefore()) {
+            sender.sendMessage(PREFIX + "§cPlayer §f" + targetName + " §cnot found.");
+            return;
+        }
+        UUID targetId = offlineTarget.getUniqueId();
+
+        // Cannot ban yourself
+        if (targetId.equals(player.getUniqueId())) {
+            sender.sendMessage(PREFIX + "§cYou cannot ban yourself.");
+            return;
+        }
+
+        // Permission check using role hierarchy (same as kick)
+        FactionMember.Role actorRole = getPlayerRole(faction, player);
+        FactionMember.Role targetRole = faction.hasMember(targetId) ? plugin.getFactionService().getMemberRole(faction, targetId) : null;
+        if (actorRole == null) {
+            sender.sendMessage(PREFIX + "§cError retrieving your role.");
+            return;
+        }
+        // If target is a member, check permission
+        if (targetRole != null) {
+            if (actorRole.ordinal() >= targetRole.ordinal()) {
+                sender.sendMessage(PREFIX + "§cYour role is not high enough to ban this player.");
+                return;
+            }
+        }
+
+        // If target is currently in the faction, kick them first
+        if (faction.hasMember(targetId)) {
+            plugin.getFactionService().removeMember(faction, targetId);
+        }
+
+        // Apply ban
+        plugin.getFactionService().banPlayer(faction, targetId);
+        sender.sendMessage(PREFIX + "§aBanned §f" + offlineTarget.getName() + "§a from the faction.");
+
+        // Notify target if online
+        Player targetOnline = Bukkit.getPlayer(targetId);
+        if (targetOnline != null && targetOnline.isOnline()) {
+            targetOnline.sendMessage(PREFIX + "§cYou have been banned from §f" + faction.getTag());
+        }
     }
 
     private void handleUnban(CommandSender sender, String[] args) throws SQLException {
@@ -554,8 +637,23 @@ public class FactionCommand implements CommandExecutor, TabExecutor {
             return;
         }
 
-        sender.sendMessage(PREFIX + "§aPlayer unbanned.");
-        // TODO: implement player resolve
+        String targetName = args[1];
+        OfflinePlayer offlineTarget = Bukkit.getOfflinePlayer(targetName);
+        if (!offlineTarget.hasPlayedBefore()) {
+            sender.sendMessage(PREFIX + "§cPlayer §f" + targetName + " §cnot found.");
+            return;
+        }
+        UUID targetId = offlineTarget.getUniqueId();
+
+        // Check if actually banned
+        if (!faction.getBanned().contains(targetId)) {
+            sender.sendMessage(PREFIX + "§cPlayer is not banned from this faction.");
+            return;
+        }
+
+        // Unban
+        plugin.getFactionService().unbanPlayer(faction, targetId);
+        sender.sendMessage(PREFIX + "§aUnbanned §f" + offlineTarget.getName() + "§a from the faction.");
     }
 
     private void handlePromote(CommandSender sender, String[] args) throws SQLException {
@@ -572,10 +670,63 @@ public class FactionCommand implements CommandExecutor, TabExecutor {
             return;
         }
 
-        // Would need to resolve target player
-        // For now placeholder
-        sender.sendMessage(PREFIX + "§aPlayer promoted.");
-        // TODO: implement role promotion logic
+        String targetName = args[1];
+        OfflinePlayer offlineTarget = Bukkit.getOfflinePlayer(targetName);
+        if (!offlineTarget.hasPlayedBefore()) {
+            sender.sendMessage(PREFIX + "§cPlayer §f" + targetName + " §cnot found.");
+            return;
+        }
+        UUID targetId = offlineTarget.getUniqueId();
+
+        // Target must be a faction member
+        if (!faction.hasMember(targetId)) {
+            sender.sendMessage(PREFIX + "§cPlayer is not in your faction.");
+            return;
+        }
+
+        // Permission: only LEADER can promote to any role, OFFICER can promote RECRUIT→MEMBER and MEMBER→OFFICER?
+        // In typical hierarchy, OFFICER cannot promote to LEADER. LEADER only can promote to LEADER.
+        // We'll allow promotion if actor's role is higher than target's current role after promotion target.
+        FactionMember.Role actorRole = getPlayerRole(faction, player);
+        FactionMember.Role targetRole = plugin.getFactionService().getMemberRole(faction, targetId);
+        if (actorRole == null || targetRole == null) {
+            sender.sendMessage(PREFIX + "§cError retrieving roles.");
+            return;
+        }
+
+        // Determine next role
+        FactionMember.Role newRole;
+        switch (targetRole) {
+            case RECRUIT: newRole = FactionMember.Role.MEMBER; break;
+            case MEMBER: newRole = FactionMember.Role.OFFICER; break;
+            case OFFICER: newRole = FactionMember.Role.LEADER; break;
+            case LEADER:
+            default:
+                sender.sendMessage(PREFIX + "§cThat player is already at the highest rank.");
+                return;
+        }
+
+        // Only LEADER can promote to LEADER. Officers can promote to OFFICER max.
+        if (newRole == FactionMember.Role.LEADER && actorRole != FactionMember.Role.LEADER) {
+            sender.sendMessage(PREFIX + "§cOnly the faction leader can promote to leader.");
+            return;
+        }
+        // Officer can promote up to officer (member->officer); cannot promote officer->leader (handled above).
+        // For simplicity, require actor role to be higher than target's current role.
+        if (actorRole.ordinal() >= targetRole.ordinal()) {
+            sender.sendMessage(PREFIX + "§cYour role is not high enough to promote this player.");
+            return;
+        }
+
+        // Apply promotion
+        plugin.getFactionService().setMemberRole(faction, targetId, newRole);
+        sender.sendMessage(PREFIX + "§aPromoted §f" + offlineTarget.getName() + "§a to §f" + newRole + "§a.");
+
+        // Notify target
+        Player targetOnline = Bukkit.getPlayer(targetId);
+        if (targetOnline != null && targetOnline.isOnline()) {
+            targetOnline.sendMessage(PREFIX + "§aYou have been promoted to §f" + newRole + "§a in §f" + faction.getTag());
+        }
     }
 
     private void handleDemote(CommandSender sender, String[] args) throws SQLException {
@@ -592,8 +743,58 @@ public class FactionCommand implements CommandExecutor, TabExecutor {
             return;
         }
 
-        sender.sendMessage(PREFIX + "§aPlayer demoted.");
-        // TODO: implement role demotion logic
+        String targetName = args[1];
+        OfflinePlayer offlineTarget = Bukkit.getOfflinePlayer(targetName);
+        if (!offlineTarget.hasPlayedBefore()) {
+            sender.sendMessage(PREFIX + "§cPlayer §f" + targetName + " §cnot found.");
+            return;
+        }
+        UUID targetId = offlineTarget.getUniqueId();
+
+        // Target must be a faction member
+        if (!faction.hasMember(targetId)) {
+            sender.sendMessage(PREFIX + "§cPlayer is not in your faction.");
+            return;
+        }
+
+        // Permission check: actor must have higher role than target's current role
+        FactionMember.Role actorRole = getPlayerRole(faction, player);
+        FactionMember.Role targetRole = plugin.getFactionService().getMemberRole(faction, targetId);
+        if (actorRole == null || targetRole == null) {
+            sender.sendMessage(PREFIX + "§cError retrieving roles.");
+            return;
+        }
+
+        // Determine new (lower) role
+        FactionMember.Role newRole;
+        switch (targetRole) {
+            case LEADER:
+                sender.sendMessage(PREFIX + "§cYou cannot demote the faction leader.");
+                return;
+            case OFFICER: newRole = FactionMember.Role.MEMBER; break;
+            case MEMBER: newRole = FactionMember.Role.RECRUIT; break;
+            case RECRUIT:
+            default:
+                sender.sendMessage(PREFIX + "§cThat player is already at the lowest rank.");
+                return;
+        }
+
+        // Only LEADER can demote officers. Officers can demote members. Members can demote recruits.
+        // Check actor role is higher (lower ordinal)
+        if (actorRole.ordinal() >= targetRole.ordinal()) {
+            sender.sendMessage(PREFIX + "§cYour role is not high enough to demote this player.");
+            return;
+        }
+
+        // Apply demotion
+        plugin.getFactionService().setMemberRole(faction, targetId, newRole);
+        sender.sendMessage(PREFIX + "§aDemoted §f" + offlineTarget.getName() + "§a to §f" + newRole + "§a.");
+
+        // Notify target
+        Player targetOnline = Bukkit.getPlayer(targetId);
+        if (targetOnline != null && targetOnline.isOnline()) {
+            targetOnline.sendMessage(PREFIX + "§cYou have been demoted to §f" + newRole + "§c in §f" + faction.getTag());
+        }
     }
 
     private void handleWho(CommandSender sender, String[] args) throws SQLException {
@@ -723,9 +924,70 @@ public class FactionCommand implements CommandExecutor, TabExecutor {
         sender.sendMessage("§fClaims: §7" + faction.getClaimCount() + "/" + faction.getMaxClaims());
     }
 
-    private void handleMap(CommandSender sender, String[] args) {
-        // ASCII map implementation
-        sender.sendMessage(PREFIX + "§7Territory map feature coming soon.");
+    private void handleMap(CommandSender sender, String[] args) throws SQLException {
+        if (!(sender instanceof Player)) {
+            sender.sendMessage(PREFIX + "§cOnly players can use this command.");
+            return;
+        }
+        Player player = (Player) sender;
+        Faction playerFaction = getPlayerFaction(player);
+        if (playerFaction == null) {
+            sender.sendMessage(PREFIX + "§cYou are not in a faction.");
+            return;
+        }
+
+        // Determine map center (player's chunk)
+        int centerX = player.getLocation().getBlockX() >> 4; // chunk X
+        int centerZ = player.getLocation().getBlockZ() >> 4; // chunk Z
+        String world = player.getWorld().getName();
+
+        int radius = 3; // 7x7 map centered on player
+        sender.sendMessage(PREFIX + "§7--- §bFaction Map§7 (§f" + world + " §7chunk §f" + centerX + "," + centerZ + "§7) ---");
+
+        // Build map rows from top to bottom (north to south in Minecraft Z- direction)
+        for (int dz = -radius; dz <= radius; dz++) {
+            StringBuilder row = new StringBuilder();
+            for (int dx = -radius; dx <= radius; dx++) {
+                int cx = centerX + dx;
+                int cz = centerZ + dz;
+                Optional<Faction> optFaction = plugin.getClaimService().getOwningFaction(world, cx, cz);
+                char ch = '·';
+                ChatColor color = ChatColor.GRAY;
+                if (optFaction.isPresent()) {
+                    Faction f = optFaction.get();
+                    if (f.getId().equals(playerFaction.getId())) {
+                        ch = '█';
+                        color = ChatColor.AQUA;
+                    } else {
+                        RelationState rel = plugin.getRelationService().getRelation(playerFaction, f);
+                        switch (rel) {
+                            case ALLY:
+                                ch = '░';
+                                color = ChatColor.GREEN;
+                                break;
+                            case ENEMY:
+                                ch = '▓';
+                                color = ChatColor.RED;
+                                break;
+                            case TRUCE:
+                                ch = '○';
+                                color = ChatColor.BLUE;
+                                break;
+                            case NEUTRAL:
+                            default:
+                                ch = '▒';
+                                color = ChatColor.YELLOW;
+                                break;
+                        }
+                    }
+                }
+                row.append(color).append(ch);
+            }
+            sender.sendMessage(row.toString());
+        }
+
+        sender.sendMessage(PREFIX + "§7Legend: §b█§7=Yours §a░§7=Ally §c▓§7=Enemy §b○§7=Truce §e▒§7=Neutral §7·=Wilderness");
+        sender.sendMessage(PREFIX + "§7North ↑ (top of map)");
     }
 
     private void handleTop(CommandSender sender, String[] args) throws SQLException {
