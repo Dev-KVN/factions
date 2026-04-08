@@ -586,22 +586,31 @@ public class FactionCommand implements CommandExecutor, TabExecutor {
         }
         UUID targetId = offlineTarget.getUniqueId();
 
-        // Cannot ban yourself
+        // Cannot ban yourself or the faction leader
         if (targetId.equals(player.getUniqueId())) {
             sender.sendMessage(PREFIX + "§cYou cannot ban yourself.");
             return;
         }
+        if (targetId.equals(faction.getLeaderId())) {
+            sender.sendMessage(PREFIX + "§cYou cannot ban the faction leader.");
+            return;
+        }
 
-        // Permission check using role hierarchy (same as kick)
+        // Permission check: only LEADER or OFFICER can ban
         FactionMember.Role actorRole = getPlayerRole(faction, player);
-        FactionMember.Role targetRole = faction.hasMember(targetId) ? plugin.getFactionService().getMemberRole(faction, targetId) : null;
         if (actorRole == null) {
             sender.sendMessage(PREFIX + "§cError retrieving your role.");
             return;
         }
-        // If target is a member, check permission
-        if (targetRole != null) {
-            if (actorRole.ordinal() >= targetRole.ordinal()) {
+        if (actorRole != FactionMember.Role.LEADER && actorRole != FactionMember.Role.OFFICER) {
+            sender.sendMessage(PREFIX + "§cOnly officers can ban players.");
+            return;
+        }
+
+        // If target is a faction member, check role hierarchy
+        if (faction.hasMember(targetId)) {
+            FactionMember.Role targetRole = plugin.getFactionService().getMemberRole(faction, targetId);
+            if (targetRole != null && actorRole.ordinal() >= targetRole.ordinal()) {
                 sender.sendMessage(PREFIX + "§cYour role is not high enough to ban this player.");
                 return;
             }
@@ -634,6 +643,13 @@ public class FactionCommand implements CommandExecutor, TabExecutor {
 
         if (args.length < 2) {
             sender.sendMessage(PREFIX + "§e/f unban <player>");
+            return;
+        }
+
+        // Permission: only LEADER/OFFICER can unban
+        FactionMember.Role actorRole = getPlayerRole(faction, player);
+        if (actorRole != FactionMember.Role.LEADER && actorRole != FactionMember.Role.OFFICER) {
+            sender.sendMessage(PREFIX + "§cOnly officers can unban players.");
             return;
         }
 
